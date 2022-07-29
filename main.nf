@@ -99,7 +99,10 @@ Channel
 // Define Channels from input
 //bam_ch = Channel.fromPath(params.bam)
 ch_bam = Channel.value(file(params.bam))
-ch_bai = Channel.value(file("${params.bam}.bai"))
+
+idx = params.bam
+idx = idx.take(idx.lastIndexOf('.')) + '.bai'
+ch_bai = Channel.value(file(idx))
 range_lst = params.ranges.split(',').collect()
 ch_range = Channel.fromList(range_lst)
 
