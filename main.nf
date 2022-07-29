@@ -181,24 +181,26 @@ process count_reads {
 
 
 
-process report {
-    publishDir "${params.outdir}/MultiQC", mode: 'copy'
+// process report {
+//     publishDir "${params.outdir}/MultiQC", mode: 'copy'
+//     // anything written to MultiQC/multiqc_report.html is shown in the UI
+//     // it doesn't have to be anything to do with MultiQC
 
-    input:
-    file(report_dir) from ch_report_dir
-    file(aggregate_output_dir) from ch_aggregate_output
+//     input:
+//     file(report_dir) from ch_report_dir
+//     file(aggregate_output_dir) from ch_aggregate_output
     
-    output:
-    file "multiqc_report.html" into ch_multiqc_report
+//     output:
+//     file "multiqc_report.html" into ch_multiqc_report
 
-    script:
-    """
-    cp -r ${report_dir}/* .
-    # convert from pdf to png
-    for f in \$(ls $aggregate_output_dir/*.pdf); do
-       pdftoppm \$f -png > $aggregate_output_dir/\$(echo \$(basename \$f | cut -d. -f1)).png
-    done
-    Rscript -e "rmarkdown::render('report.Rmd',params = list(aggregate_output_dir='$aggregate_output_dir'))"
-    mv report.html multiqc_report.html
-    """
-}
+//     script:
+//     """
+//     cp -r ${report_dir}/* .
+//     # convert from pdf to png
+//     for f in \$(ls $aggregate_output_dir/*.pdf); do
+//        pdftoppm \$f -png > $aggregate_output_dir/\$(echo \$(basename \$f | cut -d. -f1)).png
+//     done
+//     Rscript -e "rmarkdown::render('report.Rmd',params = list(aggregate_output_dir='$aggregate_output_dir'))"
+//     mv report.html multiqc_report.html
+//     """
+// }
