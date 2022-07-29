@@ -1,5 +1,5 @@
 #!/usr/bin/env nextflow
-nextflow.enable.dsl=1
+//nextflow.enable.dsl=1
 /*
 ========================================================================================
                          lifebit-ai/xxxx
@@ -179,3 +179,26 @@ process count_reads {
     """
 }
 
+
+
+process report {
+    publishDir "${params.outdir}/MultiQC", mode: 'copy'
+
+    input:
+    file(report_dir) from ch_report_dir
+    file(aggregate_output_dir) from ch_aggregate_output
+    
+    output:
+    file "multiqc_report.html" into ch_multiqc_report
+
+    script:
+    """
+    cp -r ${report_dir}/* .
+    # convert from pdf to png
+    for f in \$(ls $aggregate_output_dir/*.pdf); do
+       pdftoppm \$f -png > $aggregate_output_dir/\$(echo \$(basename \$f | cut -d. -f1)).png
+    done
+    Rscript -e "rmarkdown::render('report.Rmd',params = list(aggregate_output_dir='$aggregate_output_dir'))"
+    mv report.html multiqc_report.html
+    """
+}
