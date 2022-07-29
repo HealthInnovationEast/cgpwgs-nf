@@ -1,0 +1,178 @@
+#!/usr/bin/env nextflow
+nextflow.enable.dsl=1
+/*
+========================================================================================
+                         lifebit-ai/xxxx
+========================================================================================
+lifebit-ai/xxxx
+ #### Homepage / Documentation
+https://github.com/xxxx
+----------------------------------------------------------------------------------------
+*/
+
+// Help message
+
+def helpMessage() {
+    // TODO
+    log.info """
+    Usage:
+    The typical command for running the pipeline is as follows:
+    nextflow run main.nf --bams sample.bam [Options]
+    
+    Inputs Options:
+    --input         Input file
+    Resource Options:
+    --max_cpus      Maximum number of CPUs (int)
+                    (default: $params.max_cpus)  
+    --max_memory    Maximum memory (memory unit)
+                    (default: $params.max_memory)
+    --max_time      Maximum time (time unit)
+                    (default: $params.max_time)
+    See here for more info: https://github.com/lifebit-ai/hla/blob/master/docs/usage.md
+    """.stripIndent()
+}
+
+// Show help message
+if (params.help) {
+  helpMessage()
+  exit 0
+}
+
+/*--------------------------------------------------------
+  Defining and showing header with all params information 
+----------------------------------------------------------*/
+
+// Header log info
+
+def summary = [:]
+
+if (workflow.revision) summary['Pipeline Release'] = workflow.revision
+
+summary['Output dir']                                  = params.outdir
+summary['Launch dir']                                  = workflow.launchDir
+summary['Working dir']                                 = workflow.workDir
+summary['Script dir']                                  = workflow.projectDir
+summary['User']                                        = workflow.userName
+// then arguments
+summary['bam']                                         = params.bam
+summary['ranges']                                       = params.ranges
+
+log.info summary.collect { k,v -> "${k.padRight(18)}: $v" }.join("\n")
+log.info "-\033[2m--------------------------------------------------\033[0m-"
+
+// Importantly, in order to successfully introspect:
+// - This needs to be done first `main.nf`, before any (non-head) nodes are launched. 
+// - All variables to be put into channels in order for them to be available later in `main.nf`.
+
+ch_repository         = Channel.of(workflow.manifest.homePage)
+ch_commitId           = Channel.of(workflow.commitId ?: "Not available is this execution mode. Please run 'nextflow run ${workflow.manifest.homePage} [...]' instead of 'nextflow run main.nf [...]'")
+ch_revision           = Channel.of(workflow.manifest.version)
+
+ch_scriptName         = Channel.of(workflow.scriptName)
+ch_scriptFile         = Channel.of(workflow.scriptFile)
+ch_projectDir         = Channel.of(workflow.projectDir)
+ch_launchDir          = Channel.of(workflow.launchDir)
+ch_workDir            = Channel.of(workflow.workDir)
+ch_userName           = Channel.of(workflow.userName)
+ch_commandLine        = Channel.of(workflow.commandLine)
+ch_configFiles        = Channel.of(workflow.configFiles)
+ch_profile            = Channel.of(workflow.profile)
+ch_container          = Channel.of(workflow.container)
+ch_containerEngine    = Channel.of(workflow.containerEngine)
+
+/*----------------------------------------------------------------
+  Setting up additional variables used for documentation purposes  
+-------------------------------------------------------------------*/
+
+Channel
+    .of(params.raci_owner)
+    .set { ch_raci_owner } 
+
+Channel
+    .of(params.domain_keywords)
+    .set { ch_domain_keywords }
+
+/*----------------------
+  Setting up input data  
+-------------------------*/
+
+// Define Channels from input
+//bam_ch = Channel.fromPath(params.bam)
+ch_bam = Channel.value(file(params.bam))
+ch_bai = Channel.value(file("${params.bam}.bai"))
+range_lst = params.ranges.split(',').collect()
+ch_range = Channel.fromList(range_lst)
+
+/*-----------
+  Processes  
+--------------*/
+
+// Do not delete this process
+// Create introspection report
+
+process obtain_pipeline_metadata {
+    publishDir "${params.tracedir}", mode: "copy"
+
+    input:
+    val repository from ch_repository
+    val commit from ch_commitId
+    val revision from ch_revision
+    val script_name from ch_scriptName
+    val script_file from ch_scriptFile
+    val project_dir from ch_projectDir
+    val launch_dir from ch_launchDir
+    val work_dir from ch_workDir
+    val user_name from ch_userName
+    val command_line from ch_commandLine
+    val config_files from ch_configFiles
+    val profile from ch_profile
+    val container from ch_container
+    val container_engine from ch_containerEngine
+    val raci_owner from ch_raci_owner
+    val domain_keywords from ch_domain_keywords
+
+    output:
+    file("pipeline_metadata_report.tsv") into ch_pipeline_metadata_report
+    
+    shell:
+    '''
+    echo "Repository\t!{repository}"                  > temp_report.tsv
+    echo "Commit\t!{commit}"                         >> temp_report.tsv
+    echo "Revision\t!{revision}"                     >> temp_report.tsv
+    echo "Script name\t!{script_name}"               >> temp_report.tsv
+    echo "Script file\t!{script_file}"               >> temp_report.tsv
+    echo "Project directory\t!{project_dir}"         >> temp_report.tsv
+    echo "Launch directory\t!{launch_dir}"           >> temp_report.tsv
+    echo "Work directory\t!{work_dir}"               >> temp_report.tsv
+    echo "User name\t!{user_name}"                   >> temp_report.tsv
+    echo "Command line\t!{command_line}"             >> temp_report.tsv
+    echo "Configuration file(s)\t!{config_files}"    >> temp_report.tsv
+    echo "Profile\t!{profile}"                       >> temp_report.tsv
+    echo "Container\t!{container}"                   >> temp_report.tsv
+    echo "Container engine\t!{container_engine}"     >> temp_report.tsv
+    echo "RACI owner\t!{raci_owner}"                 >> temp_report.tsv
+    echo "Domain keywords\t!{domain_keywords}"       >> temp_report.tsv
+    awk 'BEGIN{print "Metadata_variable\tValue"}{print}' OFS="\t" temp_report.tsv > pipeline_metadata_report.tsv
+    '''
+}
+
+
+
+process count_reads {
+    publishDir "${params.outdir}", mode: 'copy'
+    
+    input:
+    path 'in.bam' from ch_bam
+    path 'in.bam.bai' from ch_bai
+    val range from ch_range
+
+
+    output:
+    file "${range}.count" into ch_result
+
+    script:
+    """
+    samtools view -c in.bam $range > ${range}.count
+    """
+}
+
