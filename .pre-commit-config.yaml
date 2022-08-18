@@ -1,0 +1,21 @@
+exclude: docs/
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+    -   id: check-added-large-files
+        args: ['--maxkb=3000']
+    -   id: check-executables-have-shebangs
+    -   id: check-shebang-scripts-are-executable
+    -   id: check-merge-conflict
+    -   id: check-toml
+    -   id: check-yaml
+    -   id: detect-aws-credentials
+        args: [--allow-missing-credentials]
+    -   id: detect-private-key
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+-   repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.14
+    hooks:
+    -   id: mdformat
