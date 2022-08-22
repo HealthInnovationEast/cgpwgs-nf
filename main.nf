@@ -18,12 +18,12 @@ def helpMessage() {
     Usage:
     The typical command for running the pipeline is as follows:
     nextflow run main.nf --bams sample.bam [Options]
-    
+
     Inputs Options:
     --input         Input file
     Resource Options:
     --max_cpus      Maximum number of CPUs (int)
-                    (default: $params.max_cpus)  
+                    (default: $params.max_cpus)
     --max_memory    Maximum memory (memory unit)
                     (default: $params.max_memory)
     --max_time      Maximum time (time unit)
@@ -39,7 +39,7 @@ if (params.help) {
 }
 
 /*--------------------------------------------------------
-  Defining and showing header with all params information 
+  Defining and showing header with all params information
 ----------------------------------------------------------*/
 
 // Header log info
@@ -55,15 +55,26 @@ summary['Script dir']                                  = workflow.projectDir
 summary['User']                                        = workflow.userName
 // then arguments
 summary['pairs']                                       = params.pairs
-summary['genomefa']                                    = params.genomefa
-summary['snpgc']                                       = params.snpgc
-summary['sexloci']                                     = params.sexloci
+summary['core_ref']                                    = params.core_ref
+summary['snv_indel']                                   = params.snv_indel
+summary['cvn_sv']                                      = params.cvn_sv
+summary['annot']                                       = params.annot
+summary['qc_genotype']                                 = params.qc_genotype
+summary['exclude']                                     = params.exclude
+summary['exfile']                                      = params.exfile
+summary['skipgerm']                                    = params.skipgerm
+summary['cavereads']                                   = params.cavereads
+summary['cavevcfsplit']                                = params.cavevcfsplit
+summary['cpus_caveman']                                = params.cpus_caveman
+summary['cpus_pindel']                                 = params.cpus_pindel
+summary['cpus_brass']                                  = params.cpus_brass
+summary['cpus_counts']                                 = params.cpus_counts
 
 log.info summary.collect { k,v -> "${k.padRight(18)}: $v" }.join("\n")
 log.info "-\033[2m--------------------------------------------------\033[0m-"
 
 // Importantly, in order to successfully introspect:
-// - This needs to be done first `main.nf`, before any (non-head) nodes are launched. 
+// - This needs to be done first `main.nf`, before any (non-head) nodes are launched.
 // - All variables to be put into channels in order for them to be available later in `main.nf`.
 
 ch_repository         = Channel.of(workflow.manifest.homePage)
@@ -83,26 +94,26 @@ ch_container          = Channel.of(workflow.container)
 ch_containerEngine    = Channel.of(workflow.containerEngine)
 
 /*----------------------------------------------------------------
-  Setting up additional variables used for documentation purposes  
+  Setting up additional variables used for documentation purposes
 -------------------------------------------------------------------*/
 
 Channel
     .of(params.raci_owner)
-    .set { ch_raci_owner } 
+    .set { ch_raci_owner }
 
 Channel
     .of(params.domain_keywords)
     .set { ch_domain_keywords }
 
 /*----------------------
-  Setting up input data  
+  Setting up input data
 -------------------------*/
 
 // Define Channels from input
 // only if not in dsl2
 
 /*-----------
-  Processes  
+  Processes
 --------------*/
 
 // Do not delete this process
@@ -131,7 +142,7 @@ process obtain_pipeline_metadata {
 
     output:
     file("pipeline_metadata_report.tsv") into ch_pipeline_metadata_report
-    
+
     shell:
     '''
     echo "Repository\t!{repository}"                  > temp_report.tsv
@@ -154,9 +165,52 @@ process obtain_pipeline_metadata {
     '''
 }
 
+process prep_ref {
+    input:
+        file(core_ref)
+        file(snv_indel)
+        file(cvn_sv)
+        file(annot)
+        file(qc_genotype)
+
+    output:
+        path 'ref', type: 'dir', emit: ref
+        path 'caveman', type: 'dir', emit: cave_flag
+        path 'caveman_HiDepth.tsv', emit: cave_hidepth
+        path 'pindel', type: 'dir', emit: pindel_flag
+        tuple path('pindel_HiDepth.bed.gz'), path('pindel_HiDepth.bed.gz.tbi'), emit: pindel_hidepth
+        path 'brass', type: 'dir', emit: brass
+        path 'ascat/SnpGcCorrections.tsv', emit: snps_gc
+        path 'general.tsv', emit: snps_genotype
+        path 'gender.tsv', emit: snps_sex
+        path 'verifyBamID_snps.vcf.gz' , emit: snps_verifyBamID
+        path'vagrent', type: 'dir', emit: vagrent
+        path'ref_cache', type: 'dir', emit: ref_cache
+
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    script:
+        """
+        mkdir ref
+        tar --strip-components 1 -C ref -zxvf $core_ref
+        tar --strip-components 1 -zxvf $snv_indel
+        tar --strip-components 1 -zxvf $cvn_sv
+        tar --strip-components 1 -zxvf $annot
+        tar --strip-components 1 -zxvf $qc_genotype
+
+        # organise some elements further
+        mv caveman/HiDepth.tsv caveman_HiDepth.tsv
+        mv pindel/HiDepth.bed.gz pindel_HiDepth.bed.gz
+        mv pindel/HiDepth.bed.gz.tbi pindel_HiDepth.bed.gz.tbi
+
+        # build ref-cache
+        seq_cache_populate.pl -subdirs 2 -root ./ref_cache ref/genome.fa
+        """
+}
+
 process ascat_counts {
     input:
-        tuple path('genome.fa'), path('genome.fa.fai'), path('genome.fa.dict')
+        path('ref')
         path('snp.gc')
         path('sex.loci')
         tuple val(groupId), val(type), val(sampleId), val(protocol), val(platform), file(htsfile), file(htsidx), file(htsStats)
@@ -175,7 +229,7 @@ process ascat_counts {
         export PCAP_THREADED_REM_LOGS=1
         ascatCounts.pl -o . \
             -b $htsfile \
-            -r genome.fa \
+            -r ref/genome.fa \
             -sg snp.gc \
             -l sex.loci \
             -c $task.cpus
@@ -184,7 +238,7 @@ process ascat_counts {
 
 process ascat {
     input:
-        tuple path('genome.fa'), path('genome.fa.fai'), path('genome.fa.dict')
+        path('ref')
         path('snp.gc')
         tuple val(groupId), val(types), val(sampleIds), val(protocol), val(platform), path(counts), path(indexes), path(ismale)
 
@@ -194,7 +248,7 @@ process ascat {
         tuple val(groupId), path('*.copynumber.caveman.csv'), path('*.samplestatistics.txt'), emit: ascat_for_caveman
         path('*.copynumber.txt.gz')
         tuple path("*.count.gz", includeInputs: true), path("*.count.gz.tbi", includeInputs: true)
-    
+
     publishDir {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -210,12 +264,12 @@ process ascat {
         """
         # remove logs for sucessful jobs
         export PCAP_THREADED_REM_LOGS=1
-        SPECIES=`head -n 2 genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
-        ASSEMBLY=`head -n 2 genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
+        SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
+        ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
         ascat.pl -nb -f -o . \
             -ra "\$ASSEMBLY" -rs "\$SPECIES" \
             -pr "${protocol[ctrl_idx]}" -pl "${platform[ctrl_idx]}" \
-            -r genome.fa \
+            -r ref/genome.fa \
             -sg snp.gc \
             -g ${ismale[ctrl_idx]} \
             -t ${counts[case_idx]} -tn ${sampleIds[case_idx]} \
@@ -224,9 +278,45 @@ process ascat {
         """
 }
 
+process genotypes {
+    input:
+        tuple val(groupId), val(types), val(sampleIds), file(htsfiles), file(htsindexes)
+        file('general.tsv')
+        file('sex.tsv')
+
+    output:
+        file('*.tsv.gz')
+        file('*.genotype.json')
+        file('*.genotype.txt')
+
+
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/genotype"
+    }, mode: 'copy'
+
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    script:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        compareBamGenotypes.pl \
+            -o ./ \
+            -j ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.json \
+            -tb ${htsfiles[case_idx]} \
+            -nb ${htsfiles[ctrl_idx]} \
+            -s general.tsv \
+            -g sex.tsv
+        gzip ${sampleIds[case_idx]}.*.tsv
+        gzip ${sampleIds[ctrl_idx]}.*.tsv
+        """
+}
+
 process pindel {
     input:
-        tuple path('genome.fa'), path('genome.fa.fai'), path('genome.fa.dict')
+        path('ref')
         tuple path('badloci.bed.gz'), path('badloci.bed.gz.tbi')
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats)
         // optional
@@ -237,7 +327,7 @@ process pindel {
         tuple val(groupId), path('*.vcf.gz'), path('*.vcf.gz.tbi'), emit: vcf
         path('*_mt.*')
         path('*_wt.*')
-    
+
     publishDir {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -254,14 +344,14 @@ process pindel {
         """
         # remove logs for sucessful jobs
         export PCAP_THREADED_REM_LOGS=1
-        SPECIES=`head -n 2 genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
-        ASSEMBLY=`head -n 2 genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
+        SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
+        ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
         pindel.pl -noflag -o result \
         -sp "\$SPECIES" \
         -as "\$ASSEMBLY" \
         ${apply_exclude} \
         ${apply_exclude_file} \
-        -r genome.fa \
+        -r ref/genome.fa \
         -t ${htsfiles[case_idx]} \
         -n ${htsfiles[ctrl_idx]} \
         -b badloci.bed.gz \
@@ -275,18 +365,12 @@ process pindel {
 }
 
 process pindel_flag {
-
     input:
-        path(filter)
-        val unmatched_ext
-        tuple path('codingexon_regions.indel.bed.gz'), path('codingexon_regions.indel.bed.gz.tbi')
-        tuple path("unmatched.${unmatched_ext}.gz"), path("unmatched.${unmatched_ext}.gz.tbi")
-        tuple path('simplerepeats.bed.gz'), path('simplerepeats.bed.gz.tbi')
-        tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi'), val(types), val(sampleIds)
-        // optional
-        path(softfil)
+        path('pindel')
+        path('vagrent')
+        tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi'), val(types), val(sampleIds), val(protocols)
         val skipgerm
-    
+
     output:
         tuple val(groupId), path('*.pindel.flagged.vcf.gz'), path('*.pindel.flagged.vcf.gz.tbi'), emit: flagged
         tuple val(groupId), path('*.pindel.germline.bed.gz'), path('*.pindel.germline.bed.gz.tbi'), emit: germline
@@ -303,13 +387,27 @@ process pindel_flag {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         def vs_filename = "${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}"
-        def apply_soft = softfil.name != 'NO_FILE' ? "-sr $softfil" : ''
         def apply_skipgerm = skipgerm ? '-sg' : ''
+
+        def softfile = 'pindel/softRules.lst'
+        def filter = "pindel/${protocols[case_idx]}_Rules.lst"
+
         """
-        FlagVcf.pl -r ${filter} -a codingexon_regions.indel.bed.gz -u unmatched.${unmatched_ext}.gz -s simplerepeats.bed.gz -i input.vcf.gz -o ${vs_filename}.pindel.flagged.vcf ${apply_soft} ${apply_skipgerm}
+        SOFTRULES=''
+        if [ -e ${softfile} ]; then
+            SOFTRULES="-sr ${softfile}"
+        fi
+
+        FlagVcf.pl -r ${filter} \
+            -a vagrent/codingexon_regions.indel.bed.gz \
+            -u pindel/pindel_np.*.gz \
+            -s pindel/simpleRepeats.bed.gz \
+            -i input.vcf.gz \
+            -o ${vs_filename}.pindel.flagged.vcf \
+            \$SOFTRULES ${apply_skipgerm}
         bgzip -c ${vs_filename}.pindel.flagged.vcf >${vs_filename}.pindel.flagged.vcf.gz
         tabix -p vcf ${vs_filename}.pindel.flagged.vcf.gz
-        
+
         GERM_FLAG=\$(grep F012 ${filter})
         GERMLINE_BED=${vs_filename}.pindel.germline.bed
         pindel_germ_bed.pl \
@@ -322,32 +420,9 @@ process pindel_flag {
         """
 }
 
-process vagrent {
-    input:
-        tuple val(groupId), path(in_vcf), path(in_tbi), val(types), val(sampleIds)
-        tuple path('vagrent.cache.gz'), path('vagrent.cache.gz.tbi'), path('vagrent.fa'), path('vagrent.fa.fai')
-
-    output:
-        path('*.annotated.vcf.gz*')
-
-    publishDir {
-        def case_idx = types.indexOf('case')
-        def ctrl_idx = types.indexOf('control')
-        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/annotated"
-    }, mode: 'copy'
-
-    shell = ['/bin/bash', '-euo', 'pipefail']
-
-    script:
-        def annot = in_vcf.toString().minus('vcf.gz') + 'annotated.vcf'
-        """
-        AnnotateVcf.pl -t -i ${in_vcf} -o ${annot} -c vagrent.cache.gz
-        """
-}
-
 process caveman {
     input:
-        tuple path('genome.fa'), path('genome.fa.fai'), path('genome.fa.dict')
+        path('ref')
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('copynumber.caveman.csv'), path('samplestatistics.txt')
         path('highDepth.tsv')
         val cavereads
@@ -357,7 +432,7 @@ process caveman {
         tuple val(groupId), path('*.muts.ids.vcf.gz'), path('*.muts.ids.vcf.gz.tbi'), emit: to_flag
         tuple path('*.snps.ids.vcf.gz'), path('*.snps.ids.vcf.gz.tbi')
         path('*.no_analysis.bed')
-    
+
     publishDir {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -370,14 +445,10 @@ process caveman {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         def apply_exclude = exclude != false ? "-x '$exclude'" : ''
-        // -b $REF_BASE/caveman/flagging
-        // -ab $REF_BASE/vagrent
-        // -c $SNVFLAG \
-        // -f $REF_BASE/caveman/flagging/flag.to.vcf.convert.ini \
         """
         # Get the species and assembly from the dict file
-        SPECIES=`head -n 2 genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
-        ASSEMBLY=`head -n 2 genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
+        SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
+        ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
 
         # prep ascat outputs
         NORM_CONTAM=`perl -ne 'if(m/^rho\s(.+)\n/){print 1-\$1;}' samplestatistics.txt`
@@ -387,7 +458,7 @@ process caveman {
         # remove logs for sucessful jobs under PCAP::Threaded module
         export PCAP_THREADED_REM_LOGS=1
         caveman.pl \
-        -r genome.fa.fai \
+        -r ref/genome.fa.fai \
         -ig highDepth.tsv \
         -u panel \
         -s "\$SPECIES" \
@@ -413,10 +484,10 @@ process caveman_vcf_split {
     input:
         tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi')
         val cavevcfsplit
-    
+
     output:
         tuple val(groupId), path('split.*'), emit: split_vcf
-    
+
     script:
         """
         cgpVCFSplit.pl -i input.vcf.gz -o split -l ${cavevcfsplit}
@@ -427,28 +498,22 @@ process caveman_flag {
     shell = ['/bin/bash', '-euo', 'pipefail']
 
     input:
-        tuple path('genome.fa'), path('genome.fa.fai'), path('genome.fa.dict')
+        path('ref')
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('pindel.germline.bed.gz'), path('pindel.germline.bed.gz.tbi'), path(splitvcf)
-        tuple path('panel/unmatchedNormal.bed.gz'), path('panel/unmatchedNormal.bed.gz.tbi')
-        tuple path('bedfiles/centromeric_repeats.bed.gz'), path('bedfiles/centromeric_repeats.bed.gz.tbi')
-        tuple path('bedfiles/hi_seq_depth.bed.gz'), path('bedfiles/hi_seq_depth.bed.gz.tbi')
-        tuple path('bedfiles/simple_repeats.bed.gz'), path('bedfiles/simple_repeats.bed.gz.tbi')
-        tuple path('bedfiles/snps.bed.gz'), path('bedfiles/snps.bed.gz.tbi')
-        tuple path('flag.to.vcf.convert.ini'), path('flag.vcf.config.ini')
-        tuple path('vagrent/codingexon_regions.sub.bed.gz'), path('vagrent/codingexon_regions.sub.bed.gz.tbi')
-        tuple path('vagrent/gene_regions.bed.gz'), path('vagrent/gene_regions.bed.gz.tbi')
-    
+        path('caveman')
+        path('vagrent')
+
     output:
         tuple val(groupId), path('flagged.vcf'), emit: flagged
-    
+
     script:
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         """
         # Get the species and assembly from the dict file
-        SPECIES=`head -n 2 genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
-        ASSEMBLY=`head -n 2 genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
-    
+        SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
+        ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
+
         cgpFlagCaVEMan.pl \
             -i $splitvcf \
             -o flagged.vcf \
@@ -456,24 +521,24 @@ process caveman_flag {
             -sa "\$ASSEMBLY" \
             -m ${htsfiles[case_idx]} \
             -n ${htsfiles[ctrl_idx]} \
-            -ref genome.fa.fai \
+            -ref ref/genome.fa.fai \
             -t ${protocols[case_idx]} \
-            -b ./bedfiles \
+            -b ./caveman/flagging \
             -g pindel.germline.bed.gz \
-            -umv ./panel \
+            -umv ./caveman \
             -ab ./vagrent \
-            -v flag.to.vcf.convert.ini \
-            -c flag.vcf.config.ini
+            -v ./caveman/flagging/flag.to.vcf.convert.ini \
+            -c ./caveman/flag.vcf.config.${protocols[case_idx]}.ini
         """
 }
 
 process caveman_flag_merge {
     input:
         tuple val(groupId), path('?.vcf'), val(types), val(sampleIds)
-    
+
     output:
         tuple val(groupId), path('*.snvs.flagged.vcf.gz'), path('*.snvs.flagged.vcf.gz.tbi'), emit: flagged
-    
+
     publishDir {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -494,18 +559,35 @@ process caveman_flag_merge {
         """
 }
 
+process vagrent {
+    input:
+        tuple val(groupId), path(in_vcf), path(in_tbi), val(types), val(sampleIds)
+        path('vagrent')
+
+    output:
+        path('*.annotated.vcf.gz*')
+
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/annotated"
+    }, mode: 'copy'
+
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    script:
+        def annot = in_vcf.toString().minus('vcf.gz') + 'annotated.vcf'
+        """
+        AnnotateVcf.pl -t -i ${in_vcf} -o ${annot} -c vagrent/vagrent.cache.gz
+        """
+}
+
 process brass {
     input:
-        tuple path('genome.fa'), path('genome.fa.fai'), path('genome.fa.dict')
+        path('ref')
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), file('ascat.samplestatistics.txt')
-        tuple path('vagrent.cache.gz'), path('vagrent.cache.gz.tbi'), path('vagrent.fa'), path('vagrent.fa.fai')
-        path('HiDepth.bed.gz')
-        tuple path('brass_np.groups.gz'), path('brass_np.groups.gz.tbi')
-        path('viral.genomic.fa.2bit')
-        path('all_ncbi_bacteria.*')
-        path('500bp_windows.gc.bed.gz')
-        path('CentTelo.tsv')
-        path('cytoband.txt')
+        path('vagrent')
+        path('brass')
 
     output:
         path('*.brm.bam')
@@ -524,28 +606,28 @@ process brass {
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
-    
+
     script:
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         """
         # Get the species and assembly from the dict file
-        SPECIES=`head -n 2 genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
-        ASSEMBLY=`head -n 2 genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
+        SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
+        ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
 
         brass.pl -j 4 -k 4 -pl ILLUMINA \
             -c ${task.cpus} \
-            -d HiDepth.bed.gz \
-            -f brass_np.groups.gz \
-            -g genome.fa \
+            -d brass/HiDepth.bed.gz \
+            -f brass/brass_np.groups.gz \
+            -g ref/genome.fa \
             -s "\$SPECIES" -as "\$ASSEMBLY" \
             -pr ${protocols[case_idx]} \
-            -g_cache vagrent.cache.gz \
-            -vi viral.genomic.fa.2bit \
-            -mi all_ncbi_bacteria \
-            -b 500bp_windows.gc.bed.gz \
-            -ct CentTelo.tsv \
-            -cb cytoband.txt \
+            -g_cache vagrent/vagrent.cache.gz \
+            -vi brass/viral.genomic.fa.2bit \
+            -mi brass/all_ncbi_bacteria \
+            -b brass/500bp_windows.gc.bed.gz \
+            -ct brass/CentTelo.tsv \
+            -cb brass/cytoband.txt \
             -t ${htsfiles[case_idx]} \
             -n ${htsfiles[ctrl_idx]} \
             -ss ascat.samplestatistics.txt \
@@ -553,22 +635,22 @@ process brass {
         """
 }
 
-process genotypes {
+process verifybamid {
     input:
-        tuple val(groupId), val(types), val(sampleIds), file(htsfiles), file(htsindexes)
-        file('general.tsv')
-        file('sex.tsv')
-    
+    //idx, types, samp, htsread, htsidx, cn
+        tuple val(groupId), val(types), val(sampleIds), file(htsfiles), file(htsindexes), path('copynumber.caveman.csv')
+        path('verifyBamID_snps.vcf.gz')
+        path('ref_cache')
+
     output:
-        file('*.tsv.gz')
-        file('*.genotype.json')
-        file('*.genotype.txt')
-    
-    
+        path('case')
+        path('ctrl')
+        path('*.contamination.result.json')
+
     publishDir {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
-        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/genotype"
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/verifyBamID"
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
@@ -577,105 +659,104 @@ process genotypes {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         """
-        compareBamGenotypes.pl \
-            -o ./ \
-            -j ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.json \
-            -tb ${htsfiles[case_idx]} \
-            -nb ${htsfiles[ctrl_idx]} \
-            -s general.tsv \
-            -g sex.tsv
-        gzip ${sampleIds[case_idx]}.*.tsv
-        gzip ${sampleIds[ctrl_idx]}.*.tsv
+        export REF_CACHE=\$PWD/ref_cache/%2s/%2s/%s
+        export REF_PATH=\$REF_CACHE
+
+        # control
+        verifyBamHomChk.pl -d 25 \
+        -o ./ctrl \
+        -b ${htsfiles[ctrl_idx]} \
+        -t ${task.cpus} \
+        -j ${sampleIds[ctrl_idx]}.contamination.result.json \
+        -s verifyBamID_snps.vcf.gz
+
+        # case
+        verifyBamHomChk.pl -d 25 \
+        -o ./case \
+        -b ${htsfiles[case_idx]} \
+        -t ${task.cpus} \
+        -j ${sampleIds[case_idx]}.contamination.result.json \
+        -s verifyBamID_snps.vcf.gz \
+        -a copynumber.caveman.csv
         """
+
 }
 
-
 workflow {
-    genome = tuple file(params.genomefa), file("${params.genomefa}.fai"), file("${params.genomefa}.dict")
-    badloci = tuple file(params.badloci), file("${params.badloci}.tbi")
+    core_ref     = file(params.core_ref)
+    snv_indel    = file(params.snv_indel)
+    cvn_sv       = file(params.cvn_sv)
+    annot        = file(params.annot)
+    qc_genotype  = file(params.qc_genotype)
+
     pairs = Channel.fromPath(params.pairs)
+    exclude_file = file(params.exfile)
+
     case_control_map = pairs.splitCsv(header: true).map { row -> tuple(row.groupId, row.type, row.sampleId, row.protocol, row.platform, file(row.reads), file(row.readIdx), file(row.readStats)) }
 
-    exclude_file = file(params.exfile)
-    filter = file(params.filter)
-    softfil = file(params.softfil)
-    exons_indel = tuple file(params.exons_indel), file("${params.exons_indel}.tbi")
-    simrep = tuple file(params.simrep), file("${params.simrep}.tbi")
-    unmatched = tuple file(params.unmatched), file("${params.unmatched}.tbi")
-    unmatched_ext = params.unmatched.contains('gff3') ? 'gff3' : 'bed'
-    vagrentset = tuple file(params.vcache), file("${params.vcache}.tbi"), file(params.vfasta), file("${params.vfasta}.fai")
-    softfil = file(params.softfil)
-
-    snpgc = file(params.snpgc)
-    sexloci = file(params.sexloci)
-    genotypeloci = file(params.genotypeloci)
-
-    // caveman specific
-    cavehigh = file(params.cavehigh)
-
-    // caveman flagging
-    cavepanel     = tuple file(params.cavepanel), file("${params.cavepanel}.tbi")
-    cave_centrep  = tuple file(params.cave_centrep), file("${params.cave_centrep}.tbi")
-    cave_hibed    = tuple file(params.cave_hibed), file("${params.cave_hibed}.tbi")
-    cave_simrep   = tuple file(params.cave_simrep), file("${params.cave_simrep}.tbi")
-    cave_snps     = tuple file(params.cave_snps), file("${params.cave_snps}.tbi")
-    cave_flag_ini = tuple file(params.cave_flag_to), file("${params.cave_flagvcf}")
-    exons_snv     = tuple file(params.exons_snv), file("${params.exons_snv}.tbi")
-    genes_snv     = tuple file(params.genes_snv), file("${params.genes_snv}.tbi")
-
-    // brass
-    viral      = file(params.viral)
-    brass_np   = tuple file(params.brass_np), file("${params.brass_np}.tbi")
-    bacterial  = file("${params.bacterial}.*") // should be 4
-    gc_bins    = file(params.gc_bins)
-    centtelo   = file(params.centtelo)
-    cytoband   = file(params.cytoband)
-    brass_high = file(params.brass_high)
-
     main:
+        prep_ref(
+            core_ref,
+            snv_indel,
+            cvn_sv,
+            annot,
+            qc_genotype
+        )
 
         ascat_counts(
-            genome,
-            snpgc,
-            sexloci,
+            prep_ref.out.ref,
+            prep_ref.out.snps_gc,
+            prep_ref.out.snps_sex,
             case_control_map
         )
-        
         ascat(
-            genome,
-            snpgc,
+            prep_ref.out.ref,
+            prep_ref.out.snps_gc,
             ascat_counts.out.to_ascat.groupTuple()
         )
 
         grouped_align = case_control_map.groupTuple()
 
+        genotypes(
+            grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, reads, ridx] },
+            prep_ref.out.snps_genotype,
+            prep_ref.out.snps_sex
+        )
+
         pindel(
-            genome,
-            badloci,
+            prep_ref.out.ref,
+            prep_ref.out.pindel_hidepth,
             grouped_align,
             params.exclude,
             exclude_file
         )
 
-        type_samp = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp] }
+        type_samp_prot = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, prot] }
 
         pindel_flag(
-            filter,
-            unmatched_ext,
-            exons_indel,
-            unmatched,
-            simrep,
-            pindel.out.vcf.combine(type_samp, by: 0),
-            softfil,
+            prep_ref.out.pindel_flag,
+            prep_ref.out.vagrent,
+            pindel.out.vcf.combine(type_samp_prot, by: 0),
             params.skipgerm
+        )
+
+        // just the bits we need staging for this process
+        sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
+        align_and_ss = grouped_align.combine(sample_stats, by: 0)
+
+        brass(
+            prep_ref.out.ref,
+            align_and_ss,
+            prep_ref.out.vagrent,
+            prep_ref.out.brass
         )
 
         align_and_ascat = grouped_align.combine(ascat.out.ascat_for_caveman, by: 0)
 
         caveman(
-            genome,
+            prep_ref.out.ref,
             align_and_ascat,
-            cavehigh,
+            prep_ref.out.cave_hidepth,
             params.cavereads,
             params.exclude
         )
@@ -694,17 +775,13 @@ workflow {
                     .transpose(by: 10)
 
         caveman_flag(
-            genome,
+            prep_ref.out.ref,
             flag_set,
-            cavepanel,
-            cave_centrep,
-            cave_hibed,
-            cave_simrep,
-            cave_snps,
-            cave_flag_ini,
-            exons_snv,
-            genes_snv
+            prep_ref.out.cave_flag,
+            prep_ref.out.vagrent
         )
+
+        type_samp = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp] }
 
         caveman_flag_merge(
             caveman_flag.out.flagged.groupTuple(by: 0).combine(type_samp, by: 0)
@@ -714,104 +791,29 @@ workflow {
 
         vagrent(
             to_annotate.combine(type_samp, by: 0),
-            vagrentset
+            prep_ref.out.vagrent
         )
 
-        // just the bits we need staging for this process
-        sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
-        align_and_ss = grouped_align.combine(sample_stats, by: 0)
+        align_cn_verify = align_and_ascat.map {
+            idx, types, samp, prot, plat, htsread, htsidx, htsstats, cn, ss -> [idx, types, samp, htsread, htsidx, cn]
+        }
 
-        brass(
-            genome,
-            align_and_ss,
-            vagrentset,
-            brass_high,
-            brass_np,
-            viral,
-            bacterial,
-            gc_bins,
-            centtelo,
-            cytoband
-        )
-
-        genotypes(
-            grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, reads, ridx] },
-            genotypeloci,
-            sexloci
+        verifybamid(
+            align_cn_verify,
+            prep_ref.out.snps_verifyBamID,
+            prep_ref.out.ref_cache
         )
 
 
-
-    // # 1 pair
-    // rm -rf results/* .nextflow* work && nextflow -bg run /home/kr525/git/cynapse-ccri/cgpwgs-nf/main.nf --pairs /home/kr525/git/cynapse-ccri/cgpwgs-nf/test.csv --outdir results --genomefa data/cgpwgs_ref/GRCh37/genome.fa --snpgc data/cgpwgs_ref/GRCh37/ascat/SnpGcCorrections.tsv --sexloci data/cgpwgs_ref/GRCh37/gender.tsv --genotypeloci  data/cgpwgs_ref/GRCh37/general.tsv --badloci data/cgpwgs_ref/GRCh37/pindel/HiDepth.bed.gz --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --filter data/cgpwgs_ref/GRCh37/pindel/WGS_Rules.lst --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --simrep data/cgpwgs_ref/GRCh37/pindel/simpleRepeats.bed.gz --unmatched data/cgpwgs_ref/GRCh37/pindel/pindel_np.gff3.gz --softfil data/cgpwgs_ref/GRCh37/pindel/softRules.lst --vagrentroot data/cgpwgs_ref/GRCh37/vagrent --cavepanel data/cgpwgs_ref/GRCh37/caveman/unmatchedNormal.bed.gz --cavehigh data/cgpwgs_ref/GRCh37/caveman/HiDepth.tsv --exclude 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,X,Y,MT,NC_007605,hs37d5,GL% --cavebedroot data/cgpwgs_ref/GRCh37/caveman/flagging --brassroot data/cgpwgs_ref/GRCh37/brass -profile singularity >& nf.bg.log& 
-    // # resume (don't delete everything)
-    // nextflow -bg run /home/kr525/git/cynapse-ccri/cgpwgs-nf/main.nf --pairs /home/kr525/git/cynapse-ccri/cgpwgs-nf/test.csv --outdir results --genomefa data/cgpwgs_ref/GRCh37/genome.fa --snpgc data/cgpwgs_ref/GRCh37/ascat/SnpGcCorrections.tsv --sexloci data/cgpwgs_ref/GRCh37/gender.tsv --genotypeloci  data/cgpwgs_ref/GRCh37/general.tsv --badloci data/cgpwgs_ref/GRCh37/pindel/HiDepth.bed.gz --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --filter data/cgpwgs_ref/GRCh37/pindel/WGS_Rules.lst --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --simrep data/cgpwgs_ref/GRCh37/pindel/simpleRepeats.bed.gz --unmatched data/cgpwgs_ref/GRCh37/pindel/pindel_np.gff3.gz --softfil data/cgpwgs_ref/GRCh37/pindel/softRules.lst --vagrentroot data/cgpwgs_ref/GRCh37/vagrent --cavepanel data/cgpwgs_ref/GRCh37/caveman/unmatchedNormal.bed.gz --cavehigh data/cgpwgs_ref/GRCh37/caveman/HiDepth.tsv  --exclude 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,X,Y,MT,NC_007605,hs37d5,GL% --cavebedroot data/cgpwgs_ref/GRCh37/caveman/flagging --brassroot data/cgpwgs_ref/GRCh37/brass -profile singularity -resume >& nf.bg.log&
-    // # no background/resume
-    // nextflow run /home/kr525/git/cynapse-ccri/cgpwgs-nf/main.nf --pairs /home/kr525/git/cynapse-ccri/cgpwgs-nf/test.csv --outdir results --genomefa data/cgpwgs_ref/GRCh37/genome.fa --snpgc data/cgpwgs_ref/GRCh37/ascat/SnpGcCorrections.tsv --sexloci data/cgpwgs_ref/GRCh37/gender.tsv --genotypeloci  data/cgpwgs_ref/GRCh37/general.tsv --badloci data/cgpwgs_ref/GRCh37/pindel/HiDepth.bed.gz --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --filter data/cgpwgs_ref/GRCh37/pindel/WGS_Rules.lst --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --simrep data/cgpwgs_ref/GRCh37/pindel/simpleRepeats.bed.gz --unmatched data/cgpwgs_ref/GRCh37/pindel/pindel_np.gff3.gz --softfil data/cgpwgs_ref/GRCh37/pindel/softRules.lst --vagrentroot data/cgpwgs_ref/GRCh37/vagrent --cavepanel data/cgpwgs_ref/GRCh37/caveman/unmatchedNormal.bed.gz --cavehigh data/cgpwgs_ref/GRCh37/caveman/HiDepth.tsv  --exclude 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,X,Y,MT,NC_007605,hs37d5,GL% --cavebedroot data/cgpwgs_ref/GRCh37/caveman/flagging --brassroot data/cgpwgs_ref/GRCh37/brass -profile singularity -resume
-
-    // # 2 pair
-    // rm -rf results/* .nextflow* work && nextflow -bg run /home/kr525/git/cynapse-ccri/cgpwgs-nf/main.nf --pairs /home/kr525/git/cynapse-ccri/cgpwgs-nf/test_2.csv --outdir results --genomefa data/cgpwgs_ref/GRCh37/genome.fa --snpgc data/cgpwgs_ref/GRCh37/ascat/SnpGcCorrections.tsv --sexloci data/cgpwgs_ref/GRCh37/gender.tsv --genotypeloci  data/cgpwgs_ref/GRCh37/general.tsv --badloci data/cgpwgs_ref/GRCh37/pindel/HiDepth.bed.gz --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --filter data/cgpwgs_ref/GRCh37/pindel/WGS_Rules.lst --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --simrep data/cgpwgs_ref/GRCh37/pindel/simpleRepeats.bed.gz --unmatched data/cgpwgs_ref/GRCh37/pindel/pindel_np.gff3.gz --softfil data/cgpwgs_ref/GRCh37/pindel/softRules.lst --vagrentroot data/cgpwgs_ref/GRCh37/vagrent --cavepanel data/cgpwgs_ref/GRCh37/caveman/unmatchedNormal.bed.gz --cavehigh data/cgpwgs_ref/GRCh37/caveman/HiDepth.tsv --exclude 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X,MT,NC_007605,hs37d5,GL% --cavebedroot data/cgpwgs_ref/GRCh37/caveman/flagging --brassroot data/cgpwgs_ref/GRCh37/brass -profile singularity >& nf.bg.log&
-    // resume (don't delete everything)
-    // nextflow -bg run /home/kr525/git/cynapse-ccri/cgpwgs-nf/main.nf --pairs /home/kr525/git/cynapse-ccri/cgpwgs-nf/test_2.csv --outdir results --genomefa data/cgpwgs_ref/GRCh37/genome.fa --snpgc data/cgpwgs_ref/GRCh37/ascat/SnpGcCorrections.tsv --sexloci data/cgpwgs_ref/GRCh37/gender.tsv --genotypeloci  data/cgpwgs_ref/GRCh37/general.tsv --badloci data/cgpwgs_ref/GRCh37/pindel/HiDepth.bed.gz --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --filter data/cgpwgs_ref/GRCh37/pindel/WGS_Rules.lst --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --simrep data/cgpwgs_ref/GRCh37/pindel/simpleRepeats.bed.gz --unmatched data/cgpwgs_ref/GRCh37/pindel/pindel_np.gff3.gz --softfil data/cgpwgs_ref/GRCh37/pindel/softRules.lst --vagrentroot data/cgpwgs_ref/GRCh37/vagrent --cavepanel data/cgpwgs_ref/GRCh37/caveman/unmatchedNormal.bed.gz --cavehigh data/cgpwgs_ref/GRCh37/caveman/HiDepth.tsv  --exclude 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X,MT,NC_007605,hs37d5,GL% --cavebedroot data/cgpwgs_ref/GRCh37/caveman/flagging --brassroot data/cgpwgs_ref/GRCh37/brass -profile singularity -resume >& nf.bg.log&
-    // # no background/resume
-    // nextflow run /home/kr525/git/cynapse-ccri/cgpwgs-nf/main.nf --pairs /home/kr525/git/cynapse-ccri/cgpwgs-nf/test_2.csv --outdir results --genomefa data/cgpwgs_ref/GRCh37/genome.fa --snpgc data/cgpwgs_ref/GRCh37/ascat/SnpGcCorrections.tsv --sexloci data/cgpwgs_ref/GRCh37/gender.tsv --genotypeloci  data/cgpwgs_ref/GRCh37/general.tsv --badloci data/cgpwgs_ref/GRCh37/pindel/HiDepth.bed.gz --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --filter data/cgpwgs_ref/GRCh37/pindel/WGS_Rules.lst --exfile data/cgpwgs_ref/GRCh37/pindel/exclude.lst --simrep data/cgpwgs_ref/GRCh37/pindel/simpleRepeats.bed.gz --unmatched data/cgpwgs_ref/GRCh37/pindel/pindel_np.gff3.gz --softfil data/cgpwgs_ref/GRCh37/pindel/softRules.lst --vagrentroot data/cgpwgs_ref/GRCh37/vagrent --cavepanel data/cgpwgs_ref/GRCh37/caveman/unmatchedNormal.bed.gz --cavehigh data/cgpwgs_ref/GRCh37/caveman/HiDepth.tsv  --exclude 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X,MT,NC_007605,hs37d5,GL% --cavebedroot data/cgpwgs_ref/GRCh37/caveman/flagging --brassroot data/cgpwgs_ref/GRCh37/brass -profile singularity -resume
-
+    /*
+    rm -rf results/* .nextflow* work
+    nextflow run /home/kr525/git/cynapse-ccri/cgpwgs-nf/main.nf \
+        -profile test,singularity,slurm -resume \
+        --core_ref data/cgpwgs_ref/GRCh37/archives/core_ref_GRCh37d5.tar.gz \
+        --snv_indel data/cgpwgs_ref/GRCh37/archives/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
+        --cvn_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
+        --annot data/cgpwgs_ref/GRCh37/archives/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
+        --qc_genotype data/cgpwgs_ref/GRCh37/archives/qcGenotype_GRCh37d5.tar.gz \
+        --pairs /home/kr525/git/cynapse-ccri/cgpwgs-nf/test.csv
+    */
 }
-
-
-// process report {
-//     publishDir "${params.outdir}/MultiQC", mode: 'copy'
-//     // anything written to MultiQC/multiqc_report.html is shown in the UI
-//     // it doesn't have to be anything to do with MultiQC
-
-//     input:
-//     file(report_dir) from ch_report_dir
-//     file(aggregate_output_dir) from ch_aggregate_output
-    
-//     output:
-//     file "multiqc_report.html" into ch_multiqc_report
-
-//     script:
-//     """
-//     cp -r ${report_dir}/* .
-//     # convert from pdf to png
-//     for f in \$(ls $aggregate_output_dir/*.pdf); do
-//        pdftoppm \$f -png > $aggregate_output_dir/\$(echo \$(basename \$f | cut -d. -f1)).png
-//     done
-//     Rscript -e "rmarkdown::render('report.Rmd',params = list(aggregate_output_dir='$aggregate_output_dir'))"
-//     mv report.html multiqc_report.html
-//     """
-// }
-
-
-//bam_ch = Channel.fromPath(params.bam)
-// ch_bam = Channel.value(file(params.bam))
-// idx = params.bam
-// idx = idx.take(idx.lastIndexOf('.')) + '.bai'
-// ch_bai = Channel.value(file(idx))
-// // combine into tuples
-// ch_bam_bai = ch_bam.combine(ch_bai)
-
-
-// range_lst = params.ranges.split(',').collect()
-// ch_range = Channel.fromList(range_lst)
-
-// process count_reads {
-//     publishDir "${params.outdir}", mode: 'copy'
-
-//     // always include for safety
-//     shell = ['/bin/bash', '-euo', 'pipefail']
-    
-//     input:
-//     tuple val(sampleId), path("in.${params.htstype}"), path("in.${params.htsidx}")
-
-
-
-//     output:
-//     file "${sampleId}.count" into ch_result
-
-//     script:
-//     """
-//     samtools view -c in.bam > ${sampleId}.count
-//     """
-// }
