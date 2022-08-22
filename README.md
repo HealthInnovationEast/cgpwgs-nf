@@ -47,7 +47,7 @@ To execute with test data:
 
 1. Download the test data files
 
-1. Copy `data/test.csv` and replace `TEST_DATA_PATH` with the path to the data files from (2)
+1. Copy `data/test.csv` and replace instances of `TEST_DATA_PATH` within the file with the path to the data files.
 
 1. Run the following command providing suitable values for `PROFILES`, `PATH_TO_REF` and `PATH_TO_UPDATED_CSV`:
 
