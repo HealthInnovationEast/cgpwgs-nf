@@ -171,6 +171,24 @@ process prep_ref {
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
+    stub:
+        """
+        mkdir -p ref
+        mkdir -p caveman
+        touch caveman_HiDepth.tsv
+        mkdir -p pindel
+        touch pindel_HiDepth.bed.gz
+        touch pindel_HiDepth.bed.gz.tbi
+        mkdir -p brass
+        mkdir -p ascat
+        touch ascat/SnpGcCorrections.tsv
+        touch general.tsv
+        touch gender.tsv
+        touch verifyBamID_snps.vcf.gz
+        mkdir -p vagrent
+        mkdir -p ref_cache
+        """
+
     script:
         """
         mkdir ref
@@ -204,6 +222,13 @@ process ascat_counts {
 
     // makes sure pipelines fail properly, plus errors and undef values
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        """
+        touch ${sampleId}.count.gz
+        touch ${sampleId}.count.gz.tbi
+        touch ${sampleId}.is_male.txt
+        """
 
     script:
         """
@@ -239,6 +264,19 @@ process ascat {
 
     // makes sure pipelines fail properly, plus errors and undef values
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.png
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.csv
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.samplestatistics.txt
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.txt.gz
+        # others are from inputs
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -280,6 +318,16 @@ process genotypes {
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}.tsv.gz
+        touch ${sampleIds[ctrl_idx]}.tsv.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.json
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.txt
+        """
+
     script:
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -317,6 +365,20 @@ process pindel {
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bam
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bam.bai
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bw
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bam
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bam.bai
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bw
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -364,6 +426,16 @@ process pindel_flag {
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.flagged.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.flagged.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.germline.bed.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.germline.bed.gz.tbi
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -423,6 +495,17 @@ process caveman {
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.muts.ids.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.muts.ids.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.no_analysis.bed
+        """
+
     script:
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -461,14 +544,19 @@ process caveman {
 }
 
 process caveman_vcf_split {
-    shell = ['/bin/bash', '-euo', 'pipefail']
-
     input:
         tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi')
         val cavevcfsplit
 
     output:
         tuple val(groupId), path('split.*'), emit: split_vcf
+
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        """
+        touch split.1 split.2
+        """
 
     script:
         """
@@ -477,8 +565,6 @@ process caveman_vcf_split {
 }
 
 process caveman_flag {
-    shell = ['/bin/bash', '-euo', 'pipefail']
-
     input:
         path('ref')
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('pindel.germline.bed.gz'), path('pindel.germline.bed.gz.tbi'), path(splitvcf)
@@ -487,6 +573,13 @@ process caveman_flag {
 
     output:
         tuple val(groupId), path('flagged.vcf'), emit: flagged
+
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        """
+        touch flagged.vcf
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -529,6 +622,14 @@ process caveman_flag_merge {
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snvs.flagged.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snvs.flagged.vcf.gz.tbi
+        """
+
     script:
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -556,6 +657,14 @@ process vagrent {
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def annot = in_vcf.toString().minus('vcf.gz') + 'annotated.vcf'
+        """
+        # include full input path name to prevent clash
+        touch ${annot}.gz
+        touch ${annot}.gz.tbi
+        """
 
     script:
         def annot = in_vcf.toString().minus('vcf.gz') + 'annotated.vcf'
@@ -588,6 +697,20 @@ process brass {
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.brm.bam
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.brm.bam.bai
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.bedpe.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.bedpe.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.ngscn.abs_cn.bw
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.intermediates.tar.gz
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -636,6 +759,15 @@ process verifybamid {
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        mkdir -p case
+        mkdir -p ctrl
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.contamination.result.json
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -806,6 +938,17 @@ workflow {
 
 
     /*
+    STUB run
+    rm -rf results/* .nextflow* work
+    nextflow run main.nf \
+        -profile test -stub-run \
+        --core_ref data/cgpwgs_ref/GRCh37/archives/core_ref_GRCh37d5.tar.gz \
+        --snv_indel data/cgpwgs_ref/GRCh37/archives/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
+        --cvn_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
+        --annot data/cgpwgs_ref/GRCh37/archives/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
+        --qc_genotype data/cgpwgs_ref/GRCh37/archives/qcGenotype_GRCh37d5.tar.gz \
+        --pairs data/test.csv
+
     rm -rf results/* .nextflow* work
     nextflow run /home/kr525/git/cynapse-ccri/cgpwgs-nf/main.nf \
         -profile test,singularity,slurm -resume \
