@@ -1,6 +1,12 @@
 # cgpwgs-nf
 
-Nextflow version of dockstore-cgpwgs wrapper.
+Nextflow version of [dockstore-cgpwgs][ds-cgpwgs] wrapper, tailored for multi pair execution.
+
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+
+|                Main                |               Develop               |
+| :--------------------------------: | :---------------------------------: |
+| [![Main][gha-main]][gha-main-view] | [![Develop][gha-dev]][gha-dev-view] |
 
 ## How is this different
 
@@ -80,3 +86,11 @@ NOTE: do not use the `test` profile for anything other than testing with GRCh37 
 |    Workflow     |                                                                                                                                               Images |
 | :-------------: | ---------------------------------------------------------------------------------------------------------------------------------------------------: |
 | 0.1.0 - current | ascatngs:4.5.0<br>brass:v6.3.4<br>cgpcavemanwrapper:1.18.2<br>cgppindel:3.10.0<br>dockstore-cgpwgs:2.1.1<br>dockstore-cgpwgs:2.1.1<br>vagrent:v3.7.0 |
+
+<!-- refs -->
+
+[ds-cgpwgs]: https://github.com/cancerit/dockstore-cgpwgs
+[gha-dev]: https://github.com/cynapse-ccri/cgpwgs-nf/actions/workflows/build.yaml/badge.svg?branch=develop
+[gha-dev-view]: https://github.com/cynapse-ccri/cgpwgs-nf/actions?query=branch%3Adevelop
+[gha-main]: https://github.com/cynapse-ccri/cgpwgs-nf/actions/workflows/build.yaml/badge.svg?branch=main
+[gha-main-view]: https://github.com/cynapse-ccri/cgpwgs-nf/actions?query=branch%3Amain
