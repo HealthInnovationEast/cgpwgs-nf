@@ -1,34 +1,10 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
-/*
-========================================================================================
-                         lifebit-ai/xxxx
-========================================================================================
-lifebit-ai/xxxx
- #### Homepage / Documentation
-https://github.com/xxxx
-----------------------------------------------------------------------------------------
-*/
-
-// Help message
 
 def helpMessage() {
     // TODO
     log.info """
-    Usage:
-    The typical command for running the pipeline is as follows:
-    nextflow run main.nf --bams sample.bam [Options]
-
-    Inputs Options:
-    --input         Input file
-    Resource Options:
-    --max_cpus      Maximum number of CPUs (int)
-                    (default: $params.max_cpus)
-    --max_memory    Maximum memory (memory unit)
-                    (default: $params.max_memory)
-    --max_time      Maximum time (time unit)
-                    (default: $params.max_time)
-    See here for more info: https://github.com/lifebit-ai/hla/blob/master/docs/usage.md
+    Please see here for usage information: https://github.com/cynapse-ccri/cgpwgs-nf/blob/main/README.md#execution
     """.stripIndent()
 }
 
@@ -123,46 +99,52 @@ process obtain_pipeline_metadata {
     publishDir "${params.tracedir}", mode: "copy"
 
     input:
-    val repository from ch_repository
-    val commit from ch_commitId
-    val revision from ch_revision
-    val script_name from ch_scriptName
-    val script_file from ch_scriptFile
-    val project_dir from ch_projectDir
-    val launch_dir from ch_launchDir
-    val work_dir from ch_workDir
-    val user_name from ch_userName
-    val command_line from ch_commandLine
-    val config_files from ch_configFiles
-    val profile from ch_profile
-    val container from ch_container
-    val container_engine from ch_containerEngine
-    val raci_owner from ch_raci_owner
-    val domain_keywords from ch_domain_keywords
+      val(repository)
+      val(commit)
+      val(revision)
+      val(script_name)
+      val(script_file)
+      val(project_dir)
+      val(launch_dir)
+      val(work_dir)
+      val(user_name)
+      val(command_line)
+      val(config_files)
+      val(profile)
+      val(container)
+      val(container_engine)
+      val(raci_owner)
+      val(domain_keywords)
 
     output:
-    file("pipeline_metadata_report.tsv") into ch_pipeline_metadata_report
+      path("pipeline_metadata_report.tsv"), emit: pipeline_metadata_report
 
+    // same as script except ! instead of $ for variables
     shell:
-    '''
-    echo "Repository\t!{repository}"                  > temp_report.tsv
-    echo "Commit\t!{commit}"                         >> temp_report.tsv
-    echo "Revision\t!{revision}"                     >> temp_report.tsv
-    echo "Script name\t!{script_name}"               >> temp_report.tsv
-    echo "Script file\t!{script_file}"               >> temp_report.tsv
-    echo "Project directory\t!{project_dir}"         >> temp_report.tsv
-    echo "Launch directory\t!{launch_dir}"           >> temp_report.tsv
-    echo "Work directory\t!{work_dir}"               >> temp_report.tsv
-    echo "User name\t!{user_name}"                   >> temp_report.tsv
-    echo "Command line\t!{command_line}"             >> temp_report.tsv
-    echo "Configuration file(s)\t!{config_files}"    >> temp_report.tsv
-    echo "Profile\t!{profile}"                       >> temp_report.tsv
-    echo "Container\t!{container}"                   >> temp_report.tsv
-    echo "Container engine\t!{container_engine}"     >> temp_report.tsv
-    echo "RACI owner\t!{raci_owner}"                 >> temp_report.tsv
-    echo "Domain keywords\t!{domain_keywords}"       >> temp_report.tsv
-    awk 'BEGIN{print "Metadata_variable\tValue"}{print}' OFS="\t" temp_report.tsv > pipeline_metadata_report.tsv
-    '''
+      '''
+      echo "Repository\t!{repository}"                  > temp_report.tsv
+      echo "Commit\t!{commit}"                         >> temp_report.tsv
+      echo "Revision\t!{revision}"                     >> temp_report.tsv
+      echo "Script name\t!{script_name}"               >> temp_report.tsv
+      echo "Script file\t!{script_file}"               >> temp_report.tsv
+      echo "Project directory\t!{project_dir}"         >> temp_report.tsv
+      echo "Launch directory\t!{launch_dir}"           >> temp_report.tsv
+      echo "Work directory\t!{work_dir}"               >> temp_report.tsv
+      echo "User name\t!{user_name}"                   >> temp_report.tsv
+      echo "Command line\t!{command_line}"             >> temp_report.tsv
+      echo "Configuration file(s)\t!{config_files}"    >> temp_report.tsv
+      echo "Profile\t!{profile}"                       >> temp_report.tsv
+      echo "Container\t!{container}"                   >> temp_report.tsv
+      echo "Container engine\t!{container_engine}"     >> temp_report.tsv
+      echo "RACI owner\t!{raci_owner}"                 >> temp_report.tsv
+      echo "Domain keywords\t!{domain_keywords}"       >> temp_report.tsv
+      awk 'BEGIN{print "Metadata_variable\tValue"}{print}' OFS="\t" temp_report.tsv > pipeline_metadata_report.tsv
+      '''
+
+    stub:
+      '''
+      touch pipeline_metadata_report.tsv
+      '''
 }
 
 process prep_ref {
@@ -695,6 +677,24 @@ workflow {
     case_control_map = pairs.splitCsv(header: true).map { row -> tuple(row.groupId, row.type, row.sampleId, row.protocol, row.platform, file(row.reads), file(row.readIdx), file(row.readStats)) }
 
     main:
+        obtain_pipeline_metadata(
+            ch_repository,
+            ch_commitId,
+            ch_revision,
+            ch_scriptName,
+            ch_scriptFile,
+            ch_projectDir,
+            ch_launchDir,
+            ch_workDir,
+            ch_userName,
+            ch_commandLine,
+            ch_configFiles,
+            ch_profile,
+            ch_container,
+            ch_containerEngine,
+            ch_raci_owner,
+            ch_domain_keywords
+        )
         prep_ref(
             core_ref,
             snv_indel,
