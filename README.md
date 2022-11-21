@@ -74,3 +74,9 @@ Ensure you set appropriate values for `-profile`.  For example, to use the `test
 You can see all available profiles under `./conf/`.
 
 NOTE: do not use the `test` profile for anything other than testing with GRCh37 as it will mask the majority of the genome.
+
+### Versions
+
+|    Workflow     |                                                                                                                                               Images |
+| :-------------: | ---------------------------------------------------------------------------------------------------------------------------------------------------: |
+| 0.1.0 - current | ascatngs:4.5.0<br>brass:v6.3.4<br>cgpcavemanwrapper:1.18.2<br>cgppindel:3.10.0<br>dockstore-cgpwgs:2.1.1<br>dockstore-cgpwgs:2.1.1<br>vagrent:v3.7.0 |

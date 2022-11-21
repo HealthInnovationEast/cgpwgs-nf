@@ -1,34 +1,10 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
-/*
-========================================================================================
-                         lifebit-ai/xxxx
-========================================================================================
-lifebit-ai/xxxx
- #### Homepage / Documentation
-https://github.com/xxxx
-----------------------------------------------------------------------------------------
-*/
-
-// Help message
 
 def helpMessage() {
     // TODO
     log.info """
-    Usage:
-    The typical command for running the pipeline is as follows:
-    nextflow run main.nf --bams sample.bam [Options]
-
-    Inputs Options:
-    --input         Input file
-    Resource Options:
-    --max_cpus      Maximum number of CPUs (int)
-                    (default: $params.max_cpus)
-    --max_memory    Maximum memory (memory unit)
-                    (default: $params.max_memory)
-    --max_time      Maximum time (time unit)
-                    (default: $params.max_time)
-    See here for more info: https://github.com/lifebit-ai/hla/blob/master/docs/usage.md
+    Please see here for usage information: https://github.com/cynapse-ccri/cgpwgs-nf/blob/main/README.md#execution
     """.stripIndent()
 }
 
@@ -123,46 +99,52 @@ process obtain_pipeline_metadata {
     publishDir "${params.tracedir}", mode: "copy"
 
     input:
-    val repository from ch_repository
-    val commit from ch_commitId
-    val revision from ch_revision
-    val script_name from ch_scriptName
-    val script_file from ch_scriptFile
-    val project_dir from ch_projectDir
-    val launch_dir from ch_launchDir
-    val work_dir from ch_workDir
-    val user_name from ch_userName
-    val command_line from ch_commandLine
-    val config_files from ch_configFiles
-    val profile from ch_profile
-    val container from ch_container
-    val container_engine from ch_containerEngine
-    val raci_owner from ch_raci_owner
-    val domain_keywords from ch_domain_keywords
+      val(repository)
+      val(commit)
+      val(revision)
+      val(script_name)
+      val(script_file)
+      val(project_dir)
+      val(launch_dir)
+      val(work_dir)
+      val(user_name)
+      val(command_line)
+      val(config_files)
+      val(profile)
+      val(container)
+      val(container_engine)
+      val(raci_owner)
+      val(domain_keywords)
 
     output:
-    file("pipeline_metadata_report.tsv") into ch_pipeline_metadata_report
+      path("pipeline_metadata_report.tsv"), emit: pipeline_metadata_report
 
+    // same as script except ! instead of $ for variables
     shell:
-    '''
-    echo "Repository\t!{repository}"                  > temp_report.tsv
-    echo "Commit\t!{commit}"                         >> temp_report.tsv
-    echo "Revision\t!{revision}"                     >> temp_report.tsv
-    echo "Script name\t!{script_name}"               >> temp_report.tsv
-    echo "Script file\t!{script_file}"               >> temp_report.tsv
-    echo "Project directory\t!{project_dir}"         >> temp_report.tsv
-    echo "Launch directory\t!{launch_dir}"           >> temp_report.tsv
-    echo "Work directory\t!{work_dir}"               >> temp_report.tsv
-    echo "User name\t!{user_name}"                   >> temp_report.tsv
-    echo "Command line\t!{command_line}"             >> temp_report.tsv
-    echo "Configuration file(s)\t!{config_files}"    >> temp_report.tsv
-    echo "Profile\t!{profile}"                       >> temp_report.tsv
-    echo "Container\t!{container}"                   >> temp_report.tsv
-    echo "Container engine\t!{container_engine}"     >> temp_report.tsv
-    echo "RACI owner\t!{raci_owner}"                 >> temp_report.tsv
-    echo "Domain keywords\t!{domain_keywords}"       >> temp_report.tsv
-    awk 'BEGIN{print "Metadata_variable\tValue"}{print}' OFS="\t" temp_report.tsv > pipeline_metadata_report.tsv
-    '''
+      '''
+      echo "Repository\t!{repository}"                  > temp_report.tsv
+      echo "Commit\t!{commit}"                         >> temp_report.tsv
+      echo "Revision\t!{revision}"                     >> temp_report.tsv
+      echo "Script name\t!{script_name}"               >> temp_report.tsv
+      echo "Script file\t!{script_file}"               >> temp_report.tsv
+      echo "Project directory\t!{project_dir}"         >> temp_report.tsv
+      echo "Launch directory\t!{launch_dir}"           >> temp_report.tsv
+      echo "Work directory\t!{work_dir}"               >> temp_report.tsv
+      echo "User name\t!{user_name}"                   >> temp_report.tsv
+      echo "Command line\t!{command_line}"             >> temp_report.tsv
+      echo "Configuration file(s)\t!{config_files}"    >> temp_report.tsv
+      echo "Profile\t!{profile}"                       >> temp_report.tsv
+      echo "Container\t!{container}"                   >> temp_report.tsv
+      echo "Container engine\t!{container_engine}"     >> temp_report.tsv
+      echo "RACI owner\t!{raci_owner}"                 >> temp_report.tsv
+      echo "Domain keywords\t!{domain_keywords}"       >> temp_report.tsv
+      awk 'BEGIN{print "Metadata_variable\tValue"}{print}' OFS="\t" temp_report.tsv > pipeline_metadata_report.tsv
+      '''
+
+    stub:
+      '''
+      touch pipeline_metadata_report.tsv
+      '''
 }
 
 process prep_ref {
@@ -188,6 +170,24 @@ process prep_ref {
         path'ref_cache', type: 'dir', emit: ref_cache
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        """
+        mkdir -p ref
+        mkdir -p caveman
+        touch caveman_HiDepth.tsv
+        mkdir -p pindel
+        touch pindel_HiDepth.bed.gz
+        touch pindel_HiDepth.bed.gz.tbi
+        mkdir -p brass
+        mkdir -p ascat
+        touch ascat/SnpGcCorrections.tsv
+        touch general.tsv
+        touch gender.tsv
+        touch verifyBamID_snps.vcf.gz
+        mkdir -p vagrent
+        mkdir -p ref_cache
+        """
 
     script:
         """
@@ -223,6 +223,13 @@ process ascat_counts {
     // makes sure pipelines fail properly, plus errors and undef values
     shell = ['/bin/bash', '-euo', 'pipefail']
 
+    stub:
+        """
+        touch ${sampleId}.count.gz
+        touch ${sampleId}.count.gz.tbi
+        touch ${sampleId}.is_male.txt
+        """
+
     script:
         """
         # remove logs for sucessful jobs
@@ -257,6 +264,19 @@ process ascat {
 
     // makes sure pipelines fail properly, plus errors and undef values
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.png
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.csv
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.samplestatistics.txt
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.txt.gz
+        # others are from inputs
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -298,6 +318,16 @@ process genotypes {
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}.tsv.gz
+        touch ${sampleIds[ctrl_idx]}.tsv.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.json
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.txt
+        """
+
     script:
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -335,6 +365,20 @@ process pindel {
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bam
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bam.bai
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bw
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bam
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bam.bai
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bw
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -382,6 +426,16 @@ process pindel_flag {
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.flagged.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.flagged.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.germline.bed.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.germline.bed.gz.tbi
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -441,6 +495,17 @@ process caveman {
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.muts.ids.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.muts.ids.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.no_analysis.bed
+        """
+
     script:
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -479,14 +544,19 @@ process caveman {
 }
 
 process caveman_vcf_split {
-    shell = ['/bin/bash', '-euo', 'pipefail']
-
     input:
         tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi')
         val cavevcfsplit
 
     output:
         tuple val(groupId), path('split.*'), emit: split_vcf
+
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        """
+        touch split.1 split.2
+        """
 
     script:
         """
@@ -495,8 +565,6 @@ process caveman_vcf_split {
 }
 
 process caveman_flag {
-    shell = ['/bin/bash', '-euo', 'pipefail']
-
     input:
         path('ref')
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('pindel.germline.bed.gz'), path('pindel.germline.bed.gz.tbi'), path(splitvcf)
@@ -505,6 +573,13 @@ process caveman_flag {
 
     output:
         tuple val(groupId), path('flagged.vcf'), emit: flagged
+
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        """
+        touch flagged.vcf
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -547,6 +622,14 @@ process caveman_flag_merge {
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snvs.flagged.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snvs.flagged.vcf.gz.tbi
+        """
+
     script:
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -574,6 +657,14 @@ process vagrent {
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def annot = in_vcf.toString().minus('vcf.gz') + 'annotated.vcf'
+        """
+        # include full input path name to prevent clash
+        touch ${annot}.gz
+        touch ${annot}.gz.tbi
+        """
 
     script:
         def annot = in_vcf.toString().minus('vcf.gz') + 'annotated.vcf'
@@ -606,6 +697,20 @@ process brass {
     }, mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.brm.bam
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.brm.bam.bai
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.bedpe.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.bedpe.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.ngscn.abs_cn.bw
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.intermediates.tar.gz
+        """
 
     script:
         def case_idx = types.indexOf('case')
@@ -655,6 +760,15 @@ process verifybamid {
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        mkdir -p case
+        mkdir -p ctrl
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.contamination.result.json
+        """
+
     script:
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
@@ -695,6 +809,24 @@ workflow {
     case_control_map = pairs.splitCsv(header: true).map { row -> tuple(row.groupId, row.type, row.sampleId, row.protocol, row.platform, file(row.reads), file(row.readIdx), file(row.readStats)) }
 
     main:
+        obtain_pipeline_metadata(
+            ch_repository,
+            ch_commitId,
+            ch_revision,
+            ch_scriptName,
+            ch_scriptFile,
+            ch_projectDir,
+            ch_launchDir,
+            ch_workDir,
+            ch_userName,
+            ch_commandLine,
+            ch_configFiles,
+            ch_profile,
+            ch_container,
+            ch_containerEngine,
+            ch_raci_owner,
+            ch_domain_keywords
+        )
         prep_ref(
             core_ref,
             snv_indel,
@@ -806,6 +938,17 @@ workflow {
 
 
     /*
+    STUB run
+    rm -rf results/* .nextflow* work
+    nextflow run main.nf \
+        -profile test -stub-run \
+        --core_ref data/cgpwgs_ref/GRCh37/archives/core_ref_GRCh37d5.tar.gz \
+        --snv_indel data/cgpwgs_ref/GRCh37/archives/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
+        --cvn_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
+        --annot data/cgpwgs_ref/GRCh37/archives/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
+        --qc_genotype data/cgpwgs_ref/GRCh37/archives/qcGenotype_GRCh37d5.tar.gz \
+        --pairs data/test.csv
+
     rm -rf results/* .nextflow* work
     nextflow run /home/kr525/git/cynapse-ccri/cgpwgs-nf/main.nf \
         -profile test,singularity,slurm -resume \
