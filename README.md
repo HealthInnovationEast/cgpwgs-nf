@@ -62,7 +62,7 @@ To execute with test data:
     -profile $PROFILES \
     --core_ref $PATH_TO_REF/core_ref_GRCh37d5.tar.gz \
     --snv_indel $PATH_TO_REF/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
-    --cvn_sv $PATH_TO_REF/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
+    --cnv_sv $PATH_TO_REF/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
     --annot $PATH_TO_REF/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
     --qc_genotype $PATH_TO_REFs/qcGenotype_GRCh37d5.tar.gz \
     --pairs $PATH_TO_UPDATED_CSV/test.csv

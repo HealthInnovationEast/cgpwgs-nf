@@ -20,7 +20,7 @@ jobs:
             -profile test -stub-run \
             --core_ref data/cgpwgs_ref/GRCh37/archives/core_ref_GRCh37d5.tar.gz \
             --snv_indel data/cgpwgs_ref/GRCh37/archives/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
-            --cvn_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
+            --cnv_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
             --annot data/cgpwgs_ref/GRCh37/archives/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
             --qc_genotype data/cgpwgs_ref/GRCh37/archives/qcGenotype_GRCh37d5.tar.gz \
             --pairs data/test.csv
