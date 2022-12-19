@@ -33,7 +33,7 @@ summary['User']                                        = workflow.userName
 summary['pairs']                                       = params.pairs
 summary['core_ref']                                    = params.core_ref
 summary['snv_indel']                                   = params.snv_indel
-summary['cvn_sv']                                      = params.cvn_sv
+summary['cnv_sv']                                      = params.cnv_sv
 summary['annot']                                       = params.annot
 summary['qc_genotype']                                 = params.qc_genotype
 summary['exclude']                                     = params.exclude
@@ -151,7 +151,7 @@ process prep_ref {
     input:
         file(core_ref)
         file(snv_indel)
-        file(cvn_sv)
+        file(cnv_sv)
         file(annot)
         file(qc_genotype)
 
@@ -194,7 +194,7 @@ process prep_ref {
         mkdir ref
         tar --strip-components 1 -C ref -zxvf $core_ref
         tar --strip-components 1 -zxvf $snv_indel
-        tar --strip-components 1 -zxvf $cvn_sv
+        tar --strip-components 1 -zxvf $cnv_sv
         tar --strip-components 1 -zxvf $annot
         tar --strip-components 1 -zxvf $qc_genotype
 
@@ -799,7 +799,7 @@ process verifybamid {
 workflow {
     core_ref     = file(params.core_ref)
     snv_indel    = file(params.snv_indel)
-    cvn_sv       = file(params.cvn_sv)
+    cnv_sv       = file(params.cnv_sv)
     annot        = file(params.annot)
     qc_genotype  = file(params.qc_genotype)
 
@@ -830,7 +830,7 @@ workflow {
         prep_ref(
             core_ref,
             snv_indel,
-            cvn_sv,
+            cnv_sv,
             annot,
             qc_genotype
         )
@@ -944,7 +944,7 @@ workflow {
         -profile test -stub-run \
         --core_ref data/cgpwgs_ref/GRCh37/archives/core_ref_GRCh37d5.tar.gz \
         --snv_indel data/cgpwgs_ref/GRCh37/archives/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
-        --cvn_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
+        --cnv_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
         --annot data/cgpwgs_ref/GRCh37/archives/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
         --qc_genotype data/cgpwgs_ref/GRCh37/archives/qcGenotype_GRCh37d5.tar.gz \
         --pairs data/test.csv
@@ -954,7 +954,7 @@ workflow {
         -profile test,singularity,slurm -resume \
         --core_ref data/cgpwgs_ref/GRCh37/archives/core_ref_GRCh37d5.tar.gz \
         --snv_indel data/cgpwgs_ref/GRCh37/archives/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
-        --cvn_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
+        --cnv_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
         --annot data/cgpwgs_ref/GRCh37/archives/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
         --qc_genotype data/cgpwgs_ref/GRCh37/archives/qcGenotype_GRCh37d5.tar.gz \
         --pairs /home/kr525/git/cynapse-ccri/cgpwgs-nf/test.csv
