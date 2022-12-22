@@ -210,7 +210,7 @@ process prep_ref {
 
 process ascat_counts {
     input:
-        path('ref')
+        path('ref/*')
         path('snp.gc')
         path('sex.loci')
         tuple val(groupId), val(type), val(sampleId), val(protocol), val(platform), file(htsfile), file(htsidx), file(htsStats)
@@ -245,7 +245,7 @@ process ascat_counts {
 
 process ascat {
     input:
-        path('ref')
+        path('ref/*')
         path('snp.gc')
         tuple val(groupId), val(types), val(sampleIds), val(protocol), val(platform), path(counts), path(indexes), path(ismale)
 
@@ -346,7 +346,7 @@ process genotypes {
 
 process pindel {
     input:
-        path('ref')
+        path('ref/*')
         tuple path('badloci.bed.gz'), path('badloci.bed.gz.tbi')
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats)
         // optional
@@ -410,8 +410,8 @@ process pindel {
 
 process pindel_flag {
     input:
-        path('pindel')
-        path('vagrent')
+        path('pindel/*')
+        path('vagrent/*')
         tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi'), val(types), val(sampleIds), val(protocols)
         val skipgerm
 
@@ -476,7 +476,7 @@ process pindel_flag {
 
 process caveman {
     input:
-        path('ref')
+        path('ref/*')
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('copynumber.caveman.csv'), path('samplestatistics.txt')
         path('highDepth.tsv')
         val cavereads
@@ -566,10 +566,10 @@ process caveman_vcf_split {
 
 process caveman_flag {
     input:
-        path('ref')
+        path('ref/*')
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('pindel.germline.bed.gz'), path('pindel.germline.bed.gz.tbi'), path(splitvcf)
-        path('caveman')
-        path('vagrent')
+        path('caveman/*')
+        path('vagrent/*')
 
     output:
         tuple val(groupId), path('flagged.vcf'), emit: flagged
@@ -645,7 +645,7 @@ process caveman_flag_merge {
 process vagrent {
     input:
         tuple val(groupId), path(in_vcf), path(in_tbi), val(types), val(sampleIds)
-        path('vagrent')
+        path('vagrent/*')
 
     output:
         path('*.annotated.vcf.gz*')
@@ -675,10 +675,10 @@ process vagrent {
 
 process brass {
     input:
-        path('ref')
+        path('ref/*')
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), file('ascat.samplestatistics.txt')
-        path('vagrent')
-        path('brass')
+        path('vagrent/*')
+        path('brass/*')
 
     output:
         path('*.brm.bam')
@@ -745,7 +745,7 @@ process verifybamid {
     //idx, types, samp, htsread, htsidx, cn
         tuple val(groupId), val(types), val(sampleIds), file(htsfiles), file(htsindexes), path('copynumber.caveman.csv')
         path('verifyBamID_snps.vcf.gz')
-        path('ref_cache')
+        path('ref_cache/*')
 
     output:
         path('case')
