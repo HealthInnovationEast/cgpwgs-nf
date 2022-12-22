@@ -210,7 +210,7 @@ process prep_ref {
 
 process ascat_counts {
     input:
-        path('ref/*')
+        path('ref')
         path('snp.gc')
         path('sex.loci')
         tuple val(groupId), val(type), val(sampleId), val(protocol), val(platform), file(htsfile), file(htsidx), file(htsStats)
