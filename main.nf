@@ -836,7 +836,7 @@ workflow {
 
     case_control_map = pairs.splitCsv(header: true).map { row -> tuple(row.groupId, row.type, row.sampleId, row.protocol, row.platform, file(row.reads), file(row.readIdx), file(row.readStats)) }
 
-    samples = pairs.splitCsv(header: true).map { row -> row.sampleId }
+    //samples = pairs.splitCsv(header: true).map { row -> row.sampleId }
 
     main:
         obtain_pipeline_metadata(
@@ -870,7 +870,7 @@ workflow {
             prep_ref.out.ref,
             prep_ref.out.snps_gc,
             prep_ref.out.snps_sex,
-            samples
+            'bob'
         )
 
         // ascat_counts(
