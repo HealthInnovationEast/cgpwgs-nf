@@ -210,7 +210,7 @@ process prep_ref {
 
 process ascat_counts {
     input:
-        path('ref')
+        // path('ref')
         path('snp.gc')
         path('sex.loci')
         val(sampleId)
@@ -228,7 +228,7 @@ process ascat_counts {
 
     script:
         """
-        ls -lLh ref/
+        ls -lLh .
         touch ${sampleId}.count.gz
         touch ${sampleId}.count.gz.tbi
         touch ${sampleId}.is_male.txt
@@ -867,7 +867,7 @@ workflow {
 
         // fake version
         ascat_counts(
-            prep_ref.out.ref,
+            // prep_ref.out.ref,
             prep_ref.out.snps_gc,
             prep_ref.out.snps_sex,
             'bob'
