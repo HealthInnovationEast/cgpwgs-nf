@@ -213,10 +213,18 @@ process ascat_counts {
         path('ref')
         path('snp.gc')
         path('sex.loci')
+        val(sampleId)
 
     output:
         tuple path("${sampleId}.count.gz"), path("${sampleId}.count.gz.tbi")
         path("${sampleId}.is_male.txt")
+
+    stub:
+        """
+        touch ${sampleId}.count.gz
+        touch ${sampleId}.count.gz.tbi
+        touch ${sampleId}.is_male.txt
+        """
 
     script:
         """
@@ -827,6 +835,8 @@ workflow {
 
     case_control_map = pairs.splitCsv(header: true).map { row -> tuple(row.groupId, row.type, row.sampleId, row.protocol, row.platform, file(row.reads), file(row.readIdx), file(row.readStats)) }
 
+    samples = pairs.splitCsv(header: true).map { row -> row.sampleId }
+
     main:
         obtain_pipeline_metadata(
             ch_repository,
@@ -858,7 +868,8 @@ workflow {
         ascat_counts(
             prep_ref.out.ref,
             prep_ref.out.snps_gc,
-            prep_ref.out.snps_sex
+            prep_ref.out.snps_sex,
+            samples
         )
 
         // ascat_counts(
