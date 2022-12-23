@@ -213,35 +213,54 @@ process ascat_counts {
         path('ref')
         path('snp.gc')
         path('sex.loci')
-        tuple val(groupId), val(type), val(sampleId), val(protocol), val(platform), file(htsfile), file(htsidx), file(htsStats)
 
     output:
         tuple path("${sampleId}.count.gz"), path("${sampleId}.count.gz.tbi")
         path("${sampleId}.is_male.txt")
-        tuple val(groupId), val(type), val(sampleId), val(protocol), val(platform), path("${sampleId}.count.gz"), path("${sampleId}.count.gz.tbi"), path("${sampleId}.is_male.txt"), emit: to_ascat
 
-    // makes sure pipelines fail properly, plus errors and undef values
-    shell = ['/bin/bash', '-euo', 'pipefail']
-
-    stub:
+    script:
         """
         touch ${sampleId}.count.gz
         touch ${sampleId}.count.gz.tbi
         touch ${sampleId}.is_male.txt
         """
 
-    script:
-        """
-        # remove logs for sucessful jobs
-        export PCAP_THREADED_REM_LOGS=1
-        ascatCounts.pl -o . \
-            -b $htsfile \
-            -r ref/genome.fa \
-            -sg snp.gc \
-            -l sex.loci \
-            -c $task.cpus
-        """
 }
+
+// process ascat_counts {
+//     input:
+//         path('ref')
+//         path('snp.gc')
+//         path('sex.loci')
+//         tuple val(groupId), val(type), val(sampleId), val(protocol), val(platform), file(htsfile), file(htsidx), file(htsStats)
+
+//     output:
+//         tuple path("${sampleId}.count.gz"), path("${sampleId}.count.gz.tbi")
+//         path("${sampleId}.is_male.txt")
+//         tuple val(groupId), val(type), val(sampleId), val(protocol), val(platform), path("${sampleId}.count.gz"), path("${sampleId}.count.gz.tbi"), path("${sampleId}.is_male.txt"), emit: to_ascat
+
+//     // makes sure pipelines fail properly, plus errors and undef values
+//     shell = ['/bin/bash', '-euo', 'pipefail']
+
+//     stub:
+//         """
+//         touch ${sampleId}.count.gz
+//         touch ${sampleId}.count.gz.tbi
+//         touch ${sampleId}.is_male.txt
+//         """
+
+//     script:
+//         """
+//         # remove logs for sucessful jobs
+//         export PCAP_THREADED_REM_LOGS=1
+//         ascatCounts.pl -o . \
+//             -b $htsfile \
+//             -r ref/genome.fa \
+//             -sg snp.gc \
+//             -l sex.loci \
+//             -c $task.cpus
+//         """
+// }
 
 // process ascat {
 //     input:
@@ -835,12 +854,19 @@ workflow {
             qc_genotype
         )
 
+        // fake version
         ascat_counts(
             prep_ref.out.ref,
             prep_ref.out.snps_gc,
-            prep_ref.out.snps_sex,
-            case_control_map
+            prep_ref.out.snps_sex
         )
+
+        // ascat_counts(
+        //     prep_ref.out.ref,
+        //     prep_ref.out.snps_gc,
+        //     prep_ref.out.snps_sex,
+        //     case_control_map
+        // )
         // ascat(
         //     prep_ref.out.ref,
         //     prep_ref.out.snps_gc,
