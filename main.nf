@@ -228,6 +228,7 @@ process ascat_counts {
 
     script:
         """
+        ls -lLh ref/
         touch ${sampleId}.count.gz
         touch ${sampleId}.count.gz.tbi
         touch ${sampleId}.is_male.txt
