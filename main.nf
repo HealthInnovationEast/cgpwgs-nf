@@ -256,7 +256,7 @@ process genotypes {
 
 process ascat_counts {
     input:
-        path('ref/*')
+        path('ref')
         path('snp.gc')
         path('sex.loci')
         tuple val(groupId), val(type), val(sampleId), val(protocol), val(platform), file(htsfile), file(htsidx), file(htsStats)
@@ -845,12 +845,12 @@ workflow {
             prep_ref.out.snps_sex
         )
 
-        // ascat_counts(
-        //     prep_ref.out.ref,
-        //     prep_ref.out.snps_gc,
-        //     prep_ref.out.snps_sex,
-        //     case_control_map
-        // )
+        ascat_counts(
+            prep_ref.out.ref,
+            prep_ref.out.snps_gc,
+            prep_ref.out.snps_sex,
+            case_control_map
+        )
         // ascat(
         //     prep_ref.out.ref,
         //     prep_ref.out.snps_gc,
