@@ -841,98 +841,98 @@ workflow {
             prep_ref.out.snps_sex,
             case_control_map
         )
-        // ascat(
-        //     prep_ref.out.ref,
-        //     prep_ref.out.snps_gc,
-        //     ascat_counts.out.to_ascat.groupTuple()
-        // )
+        ascat(
+            prep_ref.out.ref,
+            prep_ref.out.snps_gc,
+            ascat_counts.out.to_ascat.groupTuple()
+        )
 
-        // grouped_align = case_control_map.groupTuple()
+        grouped_align = case_control_map.groupTuple()
 
-        // genotypes(
-        //     grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, reads, ridx] },
-        //     prep_ref.out.snps_genotype,
-        //     prep_ref.out.snps_sex
-        // )
+        genotypes(
+            grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, reads, ridx] },
+            prep_ref.out.snps_genotype,
+            prep_ref.out.snps_sex
+        )
 
-        // pindel(
-        //     prep_ref.out.ref,
-        //     prep_ref.out.pindel_hidepth,
-        //     grouped_align,
-        //     params.exclude,
-        //     exclude_file
-        // )
+        pindel(
+            prep_ref.out.ref,
+            prep_ref.out.pindel_hidepth,
+            grouped_align,
+            params.exclude,
+            exclude_file
+        )
 
-        // type_samp_prot = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, prot] }
+        type_samp_prot = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, prot] }
 
-        // pindel_flag(
-        //     prep_ref.out.pindel_flag,
-        //     prep_ref.out.vagrent,
-        //     pindel.out.vcf.combine(type_samp_prot, by: 0),
-        //     params.skipgerm
-        // )
+        pindel_flag(
+            prep_ref.out.pindel_flag,
+            prep_ref.out.vagrent,
+            pindel.out.vcf.combine(type_samp_prot, by: 0),
+            params.skipgerm
+        )
 
-        // // just the bits we need staging for this process
-        // sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
-        // align_and_ss = grouped_align.combine(sample_stats, by: 0)
+        // just the bits we need staging for this process
+        sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
+        align_and_ss = grouped_align.combine(sample_stats, by: 0)
 
-        // brass(
-        //     prep_ref.out.ref,
-        //     align_and_ss,
-        //     prep_ref.out.vagrent,
-        //     prep_ref.out.brass
-        // )
+        brass(
+            prep_ref.out.ref,
+            align_and_ss,
+            prep_ref.out.vagrent,
+            prep_ref.out.brass
+        )
 
-        // align_and_ascat = grouped_align.combine(ascat.out.ascat_for_caveman, by: 0)
+        align_and_ascat = grouped_align.combine(ascat.out.ascat_for_caveman, by: 0)
 
-        // caveman(
-        //     prep_ref.out.ref,
-        //     align_and_ascat,
-        //     prep_ref.out.cave_hidepth,
-        //     params.cavereads,
-        //     params.exclude
-        // )
+        caveman(
+            prep_ref.out.ref,
+            align_and_ascat,
+            prep_ref.out.cave_hidepth,
+            params.cavereads,
+            params.exclude
+        )
 
-        // caveman_vcf_split(
-        //     caveman.out.to_flag,
-        //     params.cavevcfsplit
-        // )
+        caveman_vcf_split(
+            caveman.out.to_flag,
+            params.cavevcfsplit
+        )
 
-        // // handle cases where split file list is a single element and currently unable to force to a list.
-        // cleaned_split = caveman_vcf_split.out.split_vcf.map {
-        //     idx, maybe_list -> [idx, maybe_list instanceof Collection ? maybe_list : [maybe_list]]
-        // }
-        // flag_set = grouped_align.combine(pindel_flag.out.germline, by:0)
-        //             .combine(cleaned_split, by: 0)
-        //             .transpose(by: 10)
+        // handle cases where split file list is a single element and currently unable to force to a list.
+        cleaned_split = caveman_vcf_split.out.split_vcf.map {
+            idx, maybe_list -> [idx, maybe_list instanceof Collection ? maybe_list : [maybe_list]]
+        }
+        flag_set = grouped_align.combine(pindel_flag.out.germline, by:0)
+                    .combine(cleaned_split, by: 0)
+                    .transpose(by: 10)
 
-        // caveman_flag(
-        //     prep_ref.out.ref,
-        //     flag_set,
-        //     prep_ref.out.cave_flag,
-        //     prep_ref.out.vagrent
-        // )
+        caveman_flag(
+            prep_ref.out.ref,
+            flag_set,
+            prep_ref.out.cave_flag,
+            prep_ref.out.vagrent
+        )
 
-        // type_samp = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp] }
+        type_samp = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp] }
 
-        // caveman_flag_merge(
-        //     caveman_flag.out.flagged.groupTuple(by: 0).combine(type_samp, by: 0)
-        // )
+        caveman_flag_merge(
+            caveman_flag.out.flagged.groupTuple(by: 0).combine(type_samp, by: 0)
+        )
 
-        // to_annotate = pindel_flag.out.flagged.concat(caveman_flag_merge.out.flagged)
+        to_annotate = pindel_flag.out.flagged.concat(caveman_flag_merge.out.flagged)
 
-        // vagrent(
-        //     to_annotate.combine(type_samp, by: 0),
-        //     prep_ref.out.vagrent
-        // )
+        vagrent(
+            to_annotate.combine(type_samp, by: 0),
+            prep_ref.out.vagrent
+        )
 
-        // align_cn_verify = align_and_ascat.map {
-        //     idx, types, samp, prot, plat, htsread, htsidx, htsstats, cn, ss -> [idx, types, samp, htsread, htsidx, cn]
-        // }
+        align_cn_verify = align_and_ascat.map {
+            idx, types, samp, prot, plat, htsread, htsidx, htsstats, cn, ss -> [idx, types, samp, htsread, htsidx, cn]
+        }
 
-        // verifybamid(
-        //     align_cn_verify,
-        //     prep_ref.out.snps_verifyBamID,
-        //     prep_ref.out.ref_cache
-        // )
+        verifybamid(
+            align_cn_verify,
+            prep_ref.out.snps_verifyBamID,
+            prep_ref.out.ref_cache
+        )
 }
