@@ -408,71 +408,71 @@ process pindel {
         """
 }
 
-// process pindel_flag {
-//     input:
-//         path('pindel/*')
-//         path('vagrent/*')
-//         tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi'), val(types), val(sampleIds), val(protocols)
-//         val skipgerm
+process pindel_flag {
+    input:
+        path('pindel')
+        path('vagrent')
+        tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi'), val(types), val(sampleIds), val(protocols)
+        val skipgerm
 
-//     output:
-//         tuple val(groupId), path('*.pindel.flagged.vcf.gz'), path('*.pindel.flagged.vcf.gz.tbi'), emit: flagged
-//         tuple val(groupId), path('*.pindel.germline.bed.gz'), path('*.pindel.germline.bed.gz.tbi'), emit: germline
+    output:
+        tuple val(groupId), path('*.pindel.flagged.vcf.gz'), path('*.pindel.flagged.vcf.gz.tbi'), emit: flagged
+        tuple val(groupId), path('*.pindel.germline.bed.gz'), path('*.pindel.germline.bed.gz.tbi'), emit: germline
 
-//     publishDir {
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/pindel"
-//     }, mode: 'copy'
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/pindel"
+    }, mode: 'copy'
 
-//     shell = ['/bin/bash', '-euo', 'pipefail']
+    shell = ['/bin/bash', '-euo', 'pipefail']
 
-//     stub:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.flagged.vcf.gz
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.flagged.vcf.gz.tbi
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.germline.bed.gz
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.germline.bed.gz.tbi
-//         """
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.flagged.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.flagged.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.germline.bed.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.germline.bed.gz.tbi
+        """
 
-//     script:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         def vs_filename = "${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}"
-//         def apply_skipgerm = skipgerm ? '-sg' : ''
+    script:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        def vs_filename = "${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}"
+        def apply_skipgerm = skipgerm ? '-sg' : ''
 
-//         def softfile = 'pindel/softRules.lst'
-//         def filter = "pindel/${protocols[case_idx]}_Rules.lst"
+        def softfile = 'pindel/softRules.lst'
+        def filter = "pindel/${protocols[case_idx]}_Rules.lst"
 
-//         """
-//         SOFTRULES=''
-//         if [ -e ${softfile} ]; then
-//             SOFTRULES="-sr ${softfile}"
-//         fi
+        """
+        SOFTRULES=''
+        if [ -e ${softfile} ]; then
+            SOFTRULES="-sr ${softfile}"
+        fi
 
-//         FlagVcf.pl -r ${filter} \
-//             -a vagrent/codingexon_regions.indel.bed.gz \
-//             -u pindel/pindel_np.*.gz \
-//             -s pindel/simpleRepeats.bed.gz \
-//             -i input.vcf.gz \
-//             -o ${vs_filename}.pindel.flagged.vcf \
-//             \$SOFTRULES ${apply_skipgerm}
-//         bgzip -c ${vs_filename}.pindel.flagged.vcf >${vs_filename}.pindel.flagged.vcf.gz
-//         tabix -p vcf ${vs_filename}.pindel.flagged.vcf.gz
+        FlagVcf.pl -r ${filter} \
+            -a vagrent/codingexon_regions.indel.bed.gz \
+            -u pindel/pindel_np.*.gz \
+            -s pindel/simpleRepeats.bed.gz \
+            -i input.vcf.gz \
+            -o ${vs_filename}.pindel.flagged.vcf \
+            \$SOFTRULES ${apply_skipgerm}
+        bgzip -c ${vs_filename}.pindel.flagged.vcf >${vs_filename}.pindel.flagged.vcf.gz
+        tabix -p vcf ${vs_filename}.pindel.flagged.vcf.gz
 
-//         GERM_FLAG=\$(grep F012 ${filter})
-//         GERMLINE_BED=${vs_filename}.pindel.germline.bed
-//         pindel_germ_bed.pl \
-//             -f \$GERM_FLAG \
-//             -i ${vs_filename}.pindel.flagged.vcf \
-//             -o \$GERMLINE_BED
-//         sort -k1,1 -k2,2n -k3,3n \$GERMLINE_BED | bgzip -c > \$GERMLINE_BED.gz
-//         tabix -p bed \$GERMLINE_BED.gz
-//         rm -f \$GERMLINE_BED
-//         """
-// }
+        GERM_FLAG=\$(grep F012 ${filter})
+        GERMLINE_BED=${vs_filename}.pindel.germline.bed
+        pindel_germ_bed.pl \
+            -f \$GERM_FLAG \
+            -i ${vs_filename}.pindel.flagged.vcf \
+            -o \$GERMLINE_BED
+        sort -k1,1 -k2,2n -k3,3n \$GERMLINE_BED | bgzip -c > \$GERMLINE_BED.gz
+        tabix -p bed \$GERMLINE_BED.gz
+        rm -f \$GERMLINE_BED
+        """
+}
 
 // process caveman {
 //     input:
@@ -863,14 +863,14 @@ workflow {
             exclude_file
         )
 
-        // type_samp_prot = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, prot] }
+        type_samp_prot = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, prot] }
 
-        // pindel_flag(
-        //     prep_ref.out.pindel_flag,
-        //     prep_ref.out.vagrent,
-        //     pindel.out.vcf.combine(type_samp_prot, by: 0),
-        //     params.skipgerm
-        // )
+        pindel_flag(
+            prep_ref.out.pindel_flag,
+            prep_ref.out.vagrent,
+            pindel.out.vcf.combine(type_samp_prot, by: 0),
+            params.skipgerm
+        )
 
         // // just the bits we need staging for this process
         // sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
