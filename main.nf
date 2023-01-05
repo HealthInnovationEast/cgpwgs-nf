@@ -278,8 +278,6 @@ process ascat_counts {
 
     script:
         """
-        ls -l
-        ls -l ref/
         # remove logs for sucessful jobs
         export PCAP_THREADED_REM_LOGS=1
         ascatCounts.pl -o . \
@@ -291,60 +289,60 @@ process ascat_counts {
         """
 }
 
-// process ascat {
-//     input:
-//         path('ref/*')
-//         path('snp.gc')
-//         tuple val(groupId), val(types), val(sampleIds), val(protocol), val(platform), path(counts), path(indexes), path(ismale)
+process ascat {
+    input:
+        path('ref')
+        path('snp.gc')
+        tuple val(groupId), val(types), val(sampleIds), val(protocol), val(platform), path(counts), path(indexes), path(ismale)
 
-//     output:
-//         tuple path('*.copynumber.caveman.vcf.gz'), path('*.copynumber.caveman.vcf.gz.tbi')
-//         path('*.png')
-//         tuple val(groupId), path('*.copynumber.caveman.csv'), path('*.samplestatistics.txt'), emit: ascat_for_caveman
-//         path('*.copynumber.txt.gz')
-//         tuple path("*.count.gz", includeInputs: true), path("*.count.gz.tbi", includeInputs: true)
+    output:
+        tuple path('*.copynumber.caveman.vcf.gz'), path('*.copynumber.caveman.vcf.gz.tbi')
+        path('*.png')
+        tuple val(groupId), path('*.copynumber.caveman.csv'), path('*.samplestatistics.txt'), emit: ascat_for_caveman
+        path('*.copynumber.txt.gz')
+        tuple path("*.count.gz", includeInputs: true), path("*.count.gz.tbi", includeInputs: true)
 
-//     publishDir {
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/ascat"
-//     }, mode: 'copy'
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/ascat"
+    }, mode: 'copy'
 
-//     // makes sure pipelines fail properly, plus errors and undef values
-//     shell = ['/bin/bash', '-euo', 'pipefail']
+    // makes sure pipelines fail properly, plus errors and undef values
+    shell = ['/bin/bash', '-euo', 'pipefail']
 
-//     stub:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.vcf.gz
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.vcf.gz.tbi
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.png
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.csv
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.samplestatistics.txt
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.txt.gz
-//         # others are from inputs
-//         """
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.png
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.caveman.csv
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.samplestatistics.txt
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.copynumber.txt.gz
+        # others are from inputs
+        """
 
-//     script:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         # remove logs for sucessful jobs
-//         export PCAP_THREADED_REM_LOGS=1
-//         SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
-//         ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
-//         ascat.pl -nb -f -o . \
-//             -ra "\$ASSEMBLY" -rs "\$SPECIES" \
-//             -pr "${protocol[ctrl_idx]}" -pl "${platform[ctrl_idx]}" \
-//             -r ref/genome.fa \
-//             -sg snp.gc \
-//             -g ${ismale[ctrl_idx]} \
-//             -t ${counts[case_idx]} -tn ${sampleIds[case_idx]} \
-//             -n ${counts[ctrl_idx]} -nn ${sampleIds[ctrl_idx]} \
-//             -c $task.cpus
-//         """
-// }
+    script:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        # remove logs for sucessful jobs
+        export PCAP_THREADED_REM_LOGS=1
+        SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
+        ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
+        ascat.pl -nb -f -o . \
+            -ra "\$ASSEMBLY" -rs "\$SPECIES" \
+            -pr "${protocol[ctrl_idx]}" -pl "${platform[ctrl_idx]}" \
+            -r ref/genome.fa \
+            -sg snp.gc \
+            -g ${ismale[ctrl_idx]} \
+            -t ${counts[case_idx]} -tn ${sampleIds[case_idx]} \
+            -n ${counts[ctrl_idx]} -nn ${sampleIds[ctrl_idx]} \
+            -c $task.cpus
+        """
+}
 
 // process pindel {
 //     input:
@@ -851,11 +849,11 @@ workflow {
             prep_ref.out.snps_sex,
             case_control_map
         )
-        // ascat(
-        //     prep_ref.out.ref,
-        //     prep_ref.out.snps_gc,
-        //     ascat_counts.out.to_ascat.groupTuple()
-        // )
+        ascat(
+            prep_ref.out.ref,
+            prep_ref.out.snps_gc,
+            ascat_counts.out.to_ascat.groupTuple()
+        )
 
         // pindel(
         //     prep_ref.out.ref,
