@@ -344,69 +344,69 @@ process ascat {
         """
 }
 
-// process pindel {
-//     input:
-//         path('ref/*')
-//         tuple path('badloci.bed.gz'), path('badloci.bed.gz.tbi')
-//         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats)
-//         // optional
-//         val exclude
-//         path(exclude_file)
+process pindel {
+    input:
+        path('ref')
+        tuple path('badloci.bed.gz'), path('badloci.bed.gz.tbi')
+        tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats)
+        // optional
+        val exclude
+        path(exclude_file)
 
-//     output:
-//         tuple val(groupId), path('*.vcf.gz'), path('*.vcf.gz.tbi'), emit: vcf
-//         path('*_mt.*')
-//         path('*_wt.*')
+    output:
+        tuple val(groupId), path('*.vcf.gz'), path('*.vcf.gz.tbi'), emit: vcf
+        path('*_mt.*')
+        path('*_wt.*')
 
-//     publishDir {
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/pindel"
-//     }, mode: 'copy'
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/pindel"
+    }, mode: 'copy'
 
-//     shell = ['/bin/bash', '-euo', 'pipefail']
+    shell = ['/bin/bash', '-euo', 'pipefail']
 
-//     stub:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.vcf.gz
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.vcf.gz.tbi
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bam
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bam.bai
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bw
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bam
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bam.bai
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bw
-//         """
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.pindel.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bam
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bam.bai
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_mt.pindel.bw
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bam
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bam.bai
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}_wt.pindel.bw
+        """
 
-//     script:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         def apply_exclude = exclude != false ? "-e '$exclude'" : ''
-//         def apply_exclude_file = exclude_file.name != 'NO_FILE' ? "-ef $exclude_file" : ''
-//         """
-//         # remove logs for sucessful jobs
-//         export PCAP_THREADED_REM_LOGS=1
-//         SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
-//         ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
-//         pindel.pl -noflag -o result \
-//         -sp "\$SPECIES" \
-//         -as "\$ASSEMBLY" \
-//         ${apply_exclude} \
-//         ${apply_exclude_file} \
-//         -r ref/genome.fa \
-//         -t ${htsfiles[case_idx]} \
-//         -n ${htsfiles[ctrl_idx]} \
-//         -b badloci.bed.gz \
-//         -st ${protocols[case_idx]} \
-//         -c ${task.cpus}
-//         # easier to link the files than use "publishDir saveAs:"
-//         ln -f result/*.vcf.gz* .
-//         ln -f result/*_mt.* .
-//         ln -f result/*_wt.* .
-//         """
-// }
+    script:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        def apply_exclude = exclude != false ? "-e '$exclude'" : ''
+        def apply_exclude_file = exclude_file.name != 'NO_FILE' ? "-ef $exclude_file" : ''
+        """
+        # remove logs for sucessful jobs
+        export PCAP_THREADED_REM_LOGS=1
+        SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
+        ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
+        pindel.pl -noflag -o result \
+        -sp "\$SPECIES" \
+        -as "\$ASSEMBLY" \
+        ${apply_exclude} \
+        ${apply_exclude_file} \
+        -r ref/genome.fa \
+        -t ${htsfiles[case_idx]} \
+        -n ${htsfiles[ctrl_idx]} \
+        -b badloci.bed.gz \
+        -st ${protocols[case_idx]} \
+        -c ${task.cpus}
+        # easier to link the files than use "publishDir saveAs:"
+        ln -f result/*.vcf.gz* .
+        ln -f result/*_mt.* .
+        ln -f result/*_wt.* .
+        """
+}
 
 // process pindel_flag {
 //     input:
@@ -855,13 +855,13 @@ workflow {
             ascat_counts.out.to_ascat.groupTuple()
         )
 
-        // pindel(
-        //     prep_ref.out.ref,
-        //     prep_ref.out.pindel_hidepth,
-        //     grouped_align,
-        //     params.exclude,
-        //     exclude_file
-        // )
+        pindel(
+            prep_ref.out.ref,
+            prep_ref.out.pindel_hidepth,
+            grouped_align,
+            params.exclude,
+            exclude_file
+        )
 
         // type_samp_prot = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, prot] }
 
