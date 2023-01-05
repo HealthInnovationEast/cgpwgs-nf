@@ -474,74 +474,74 @@ process pindel_flag {
         """
 }
 
-// process caveman {
-//     input:
-//         path('ref/*')
-//         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('copynumber.caveman.csv'), path('samplestatistics.txt')
-//         path('highDepth.tsv')
-//         val cavereads
-//         val exclude
+process caveman {
+    input:
+        path('ref')
+        tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('copynumber.caveman.csv'), path('samplestatistics.txt')
+        path('highDepth.tsv')
+        val cavereads
+        val exclude
 
-//     output:
-//         tuple val(groupId), path('*.muts.ids.vcf.gz'), path('*.muts.ids.vcf.gz.tbi'), emit: to_flag
-//         tuple path('*.snps.ids.vcf.gz'), path('*.snps.ids.vcf.gz.tbi')
-//         path('*.no_analysis.bed')
+    output:
+        tuple val(groupId), path('*.muts.ids.vcf.gz'), path('*.muts.ids.vcf.gz.tbi'), emit: to_flag
+        tuple path('*.snps.ids.vcf.gz'), path('*.snps.ids.vcf.gz.tbi')
+        path('*.no_analysis.bed')
 
-//     publishDir {
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/caveman"
-//     }, mode: 'copy'
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/caveman"
+    }, mode: 'copy'
 
-//     shell = ['/bin/bash', '-euo', 'pipefail']
+    shell = ['/bin/bash', '-euo', 'pipefail']
 
-//     stub:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.muts.ids.vcf.gz
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.muts.ids.vcf.gz.tbi
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz.tbi
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.no_analysis.bed
-//         """
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.muts.ids.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.muts.ids.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.no_analysis.bed
+        """
 
-//     script:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         def apply_exclude = exclude != false ? "-x '$exclude'" : ''
-//         """
-//         # Get the species and assembly from the dict file
-//         SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
-//         ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
+    script:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        def apply_exclude = exclude != false ? "-x '$exclude'" : ''
+        """
+        # Get the species and assembly from the dict file
+        SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
+        ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
 
-//         # prep ascat outputs
-//         NORM_CONTAM=`perl -ne 'if(m/^rho\s(.+)\n/){print 1-\$1;}' samplestatistics.txt`
-//         perl -ne '@F=(split q{,}, \$_)[1,2,3,4]; \$F[1]-1; print join("\t",@F)."\n";' < copynumber.caveman.csv > norm.cn.bed
-//         perl -ne '@F=(split q{,}, \$_)[1,2,3,6]; \$F[1]-1; print join("\t",@F)."\n";' < copynumber.caveman.csv > tum.cn.bed
+        # prep ascat outputs
+        NORM_CONTAM=`perl -ne 'if(m/^rho\s(.+)\n/){print 1-\$1;}' samplestatistics.txt`
+        perl -ne '@F=(split q{,}, \$_)[1,2,3,4]; \$F[1]-1; print join("\t",@F)."\n";' < copynumber.caveman.csv > norm.cn.bed
+        perl -ne '@F=(split q{,}, \$_)[1,2,3,6]; \$F[1]-1; print join("\t",@F)."\n";' < copynumber.caveman.csv > tum.cn.bed
 
-//         # remove logs for sucessful jobs under PCAP::Threaded module
-//         export PCAP_THREADED_REM_LOGS=1
-//         caveman.pl \
-//         -r ref/genome.fa.fai \
-//         -ig highDepth.tsv \
-//         -u panel \
-//         -s "\$SPECIES" \
-//         -sa "\$ASSEMBLY" \
-//         -t ${task.cpus} \
-//         -st ${protocols[case_idx]} \
-//         -tc tum.cn.bed \
-//         -nc norm.cn.bed \
-//         -td 5 -nd 2 \
-//         -tb ${htsfiles[case_idx]} \
-//         -nb ${htsfiles[ctrl_idx]} \
-//         -e ${cavereads} \
-//         -o ./ \
-//         ${apply_exclude} \
-//         -k \$NORM_CONTAM \
-//         -no-flagging
-//         """
-// }
+        # remove logs for sucessful jobs under PCAP::Threaded module
+        export PCAP_THREADED_REM_LOGS=1
+        caveman.pl \
+        -r ref/genome.fa.fai \
+        -ig highDepth.tsv \
+        -u panel \
+        -s "\$SPECIES" \
+        -sa "\$ASSEMBLY" \
+        -t ${task.cpus} \
+        -st ${protocols[case_idx]} \
+        -tc tum.cn.bed \
+        -nc norm.cn.bed \
+        -td 5 -nd 2 \
+        -tb ${htsfiles[case_idx]} \
+        -nb ${htsfiles[ctrl_idx]} \
+        -e ${cavereads} \
+        -o ./ \
+        ${apply_exclude} \
+        -k \$NORM_CONTAM \
+        -no-flagging
+        """
+}
 
 // process caveman_vcf_split {
 //     input:
@@ -872,26 +872,15 @@ workflow {
             params.skipgerm
         )
 
-        // // just the bits we need staging for this process
-        // sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
-        // align_and_ss = grouped_align.combine(sample_stats, by: 0)
+        align_and_ascat = grouped_align.combine(ascat.out.ascat_for_caveman, by: 0)
 
-        // brass(
-        //     prep_ref.out.ref,
-        //     align_and_ss,
-        //     prep_ref.out.vagrent,
-        //     prep_ref.out.brass
-        // )
-
-        // align_and_ascat = grouped_align.combine(ascat.out.ascat_for_caveman, by: 0)
-
-        // caveman(
-        //     prep_ref.out.ref,
-        //     align_and_ascat,
-        //     prep_ref.out.cave_hidepth,
-        //     params.cavereads,
-        //     params.exclude
-        // )
+        caveman(
+            prep_ref.out.ref,
+            align_and_ascat,
+            prep_ref.out.cave_hidepth,
+            params.cavereads,
+            params.exclude
+        )
 
         // caveman_vcf_split(
         //     caveman.out.to_flag,
@@ -934,5 +923,16 @@ workflow {
         //     align_cn_verify,
         //     prep_ref.out.snps_verifyBamID,
         //     prep_ref.out.ref_cache
+        // )
+
+        // // just the bits we need staging for this process
+        // sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
+        // align_and_ss = grouped_align.combine(sample_stats, by: 0)
+
+        // brass(
+        //     prep_ref.out.ref,
+        //     align_and_ss,
+        //     prep_ref.out.vagrent,
+        //     prep_ref.out.brass
         // )
 }
