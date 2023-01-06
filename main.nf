@@ -564,237 +564,237 @@ process caveman_vcf_split {
         """
 }
 
-// process caveman_flag {
-//     input:
-//         path('ref/*')
-//         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('pindel.germline.bed.gz'), path('pindel.germline.bed.gz.tbi'), path(splitvcf)
-//         path('caveman/*')
-//         path('vagrent/*')
+process caveman_flag {
+    input:
+        path('ref')
+        tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('pindel.germline.bed.gz'), path('pindel.germline.bed.gz.tbi'), path(splitvcf)
+        path('caveman')
+        path('vagrent')
 
-//     output:
-//         tuple val(groupId), path('flagged.vcf'), emit: flagged
+    output:
+        tuple val(groupId), path('flagged.vcf'), emit: flagged
 
-//     shell = ['/bin/bash', '-euo', 'pipefail']
+    shell = ['/bin/bash', '-euo', 'pipefail']
 
-//     stub:
-//         """
-//         touch flagged.vcf
-//         """
+    stub:
+        """
+        touch flagged.vcf
+        """
 
-//     script:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         # Get the species and assembly from the dict file
-//         SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
-//         ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
+    script:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        # Get the species and assembly from the dict file
+        SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
+        ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
 
-//         cgpFlagCaVEMan.pl \
-//             -i $splitvcf \
-//             -o flagged.vcf \
-//             -s "\$SPECIES" \
-//             -sa "\$ASSEMBLY" \
-//             -m ${htsfiles[case_idx]} \
-//             -n ${htsfiles[ctrl_idx]} \
-//             -ref ref/genome.fa.fai \
-//             -t ${protocols[case_idx]} \
-//             -b ./caveman/flagging \
-//             -g pindel.germline.bed.gz \
-//             -umv ./caveman \
-//             -ab ./vagrent \
-//             -v ./caveman/flagging/flag.to.vcf.convert.ini \
-//             -c ./caveman/flag.vcf.config.${protocols[case_idx]}.ini
-//         """
-// }
+        cgpFlagCaVEMan.pl \
+            -i $splitvcf \
+            -o flagged.vcf \
+            -s "\$SPECIES" \
+            -sa "\$ASSEMBLY" \
+            -m ${htsfiles[case_idx]} \
+            -n ${htsfiles[ctrl_idx]} \
+            -ref ref/genome.fa.fai \
+            -t ${protocols[case_idx]} \
+            -b ./caveman/flagging \
+            -g pindel.germline.bed.gz \
+            -umv ./caveman \
+            -ab ./vagrent \
+            -v ./caveman/flagging/flag.to.vcf.convert.ini \
+            -c ./caveman/flag.vcf.config.${protocols[case_idx]}.ini
+        """
+}
 
-// process caveman_flag_merge {
-//     input:
-//         tuple val(groupId), path('?.vcf'), val(types), val(sampleIds)
+process caveman_flag_merge {
+    input:
+        tuple val(groupId), path('?.vcf'), val(types), val(sampleIds)
 
-//     output:
-//         tuple val(groupId), path('*.snvs.flagged.vcf.gz'), path('*.snvs.flagged.vcf.gz.tbi'), emit: flagged
+    output:
+        tuple val(groupId), path('*.snvs.flagged.vcf.gz'), path('*.snvs.flagged.vcf.gz.tbi'), emit: flagged
 
-//     publishDir {
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/caveman"
-//     }, mode: 'copy'
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/caveman"
+    }, mode: 'copy'
 
-//     shell = ['/bin/bash', '-euo', 'pipefail']
+    shell = ['/bin/bash', '-euo', 'pipefail']
 
-//     stub:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snvs.flagged.vcf.gz
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snvs.flagged.vcf.gz.tbi
-//         """
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snvs.flagged.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snvs.flagged.vcf.gz.tbi
+        """
 
-//     script:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         FLAG_VCF=${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snvs.flagged.vcf
+    script:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        FLAG_VCF=${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snvs.flagged.vcf
 
-//         vcf-concat *.vcf | vcf-sort > \$FLAG_VCF
-//         bgzip -c \$FLAG_VCF > \$FLAG_VCF.gz
-//         tabix -p vcf \$FLAG_VCF.gz
-//         """
-// }
+        vcf-concat *.vcf | vcf-sort > \$FLAG_VCF
+        bgzip -c \$FLAG_VCF > \$FLAG_VCF.gz
+        tabix -p vcf \$FLAG_VCF.gz
+        """
+}
 
-// process vagrent {
-//     input:
-//         tuple val(groupId), path(in_vcf), path(in_tbi), val(types), val(sampleIds)
-//         path('vagrent/*')
+process vagrent {
+    input:
+        tuple val(groupId), path(in_vcf), path(in_tbi), val(types), val(sampleIds)
+        path('vagrent')
 
-//     output:
-//         path('*.annotated.vcf.gz*')
+    output:
+        path('*.annotated.vcf.gz*')
 
-//     publishDir {
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/annotated"
-//     }, mode: 'copy'
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/annotated"
+    }, mode: 'copy'
 
-//     shell = ['/bin/bash', '-euo', 'pipefail']
+    shell = ['/bin/bash', '-euo', 'pipefail']
 
-//     stub:
-//         def annot = in_vcf.toString().minus('vcf.gz') + 'annotated.vcf'
-//         """
-//         # include full input path name to prevent clash
-//         touch ${annot}.gz
-//         touch ${annot}.gz.tbi
-//         """
+    stub:
+        def annot = in_vcf.toString().minus('vcf.gz') + 'annotated.vcf'
+        """
+        # include full input path name to prevent clash
+        touch ${annot}.gz
+        touch ${annot}.gz.tbi
+        """
 
-//     script:
-//         def annot = in_vcf.toString().minus('vcf.gz') + 'annotated.vcf'
-//         """
-//         AnnotateVcf.pl -t -i ${in_vcf} -o ${annot} -c vagrent/vagrent.cache.gz
-//         """
-// }
+    script:
+        def annot = in_vcf.toString().minus('vcf.gz') + 'annotated.vcf'
+        """
+        AnnotateVcf.pl -t -i ${in_vcf} -o ${annot} -c vagrent/vagrent.cache.gz
+        """
+}
 
-// process brass {
-//     input:
-//         path('ref/*')
-//         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), file('ascat.samplestatistics.txt')
-//         path('vagrent/*')
-//         path('brass/*')
+process brass {
+    input:
+        path('ref')
+        tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), file('ascat.samplestatistics.txt')
+        path('vagrent')
+        path('brass')
 
-//     output:
-//         path('*.brm.bam')
-//         path('*.brm.bam.bai')
-//         path('*.vcf.gz')
-//         path('*.vcf.gz.tbi')
-//         path('*.bedpe.gz')
-//         path('*.bedpe.gz.tbi')
-//         path('*.ngscn.abs_cn.bw')
-//         path('*.intermediates.tar.gz')
+    output:
+        path('*.brm.bam')
+        path('*.brm.bam.bai')
+        path('*.vcf.gz')
+        path('*.vcf.gz.tbi')
+        path('*.bedpe.gz')
+        path('*.bedpe.gz.tbi')
+        path('*.ngscn.abs_cn.bw')
+        path('*.intermediates.tar.gz')
 
-//     publishDir {
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/brass"
-//     }, mode: 'copy'
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/brass"
+    }, mode: 'copy'
 
-//     shell = ['/bin/bash', '-euo', 'pipefail']
+    shell = ['/bin/bash', '-euo', 'pipefail']
 
-//     stub:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.brm.bam
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.brm.bam.bai
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.vcf.gz
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.vcf.gz.tbi
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.bedpe.gz
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.bedpe.gz.tbi
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.ngscn.abs_cn.bw
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.intermediates.tar.gz
-//         """
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.brm.bam
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.brm.bam.bai
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.vcf.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.vcf.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.bedpe.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.bedpe.gz.tbi
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.ngscn.abs_cn.bw
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.intermediates.tar.gz
+        """
 
-//     script:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         # Get the species and assembly from the dict file
-//         SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
-//         ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
+    script:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        # Get the species and assembly from the dict file
+        SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
+        ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
 
-//         brass.pl -j 4 -k 4 -pl ILLUMINA \
-//             -c ${task.cpus} \
-//             -d brass/HiDepth.bed.gz \
-//             -f brass/brass_np.groups.gz \
-//             -g ref/genome.fa \
-//             -s "\$SPECIES" -as "\$ASSEMBLY" \
-//             -pr ${protocols[case_idx]} \
-//             -g_cache vagrent/vagrent.cache.gz \
-//             -vi brass/viral.genomic.fa.2bit \
-//             -mi brass/all_ncbi_bacteria \
-//             -b brass/500bp_windows.gc.bed.gz \
-//             -ct brass/CentTelo.tsv \
-//             -cb brass/cytoband.txt \
-//             -t ${htsfiles[case_idx]} \
-//             -n ${htsfiles[ctrl_idx]} \
-//             -ss ascat.samplestatistics.txt \
-//             -o ./
-//         """
-// }
+        brass.pl -j 4 -k 4 -pl ILLUMINA \
+            -c ${task.cpus} \
+            -d brass/HiDepth.bed.gz \
+            -f brass/brass_np.groups.gz \
+            -g ref/genome.fa \
+            -s "\$SPECIES" -as "\$ASSEMBLY" \
+            -pr ${protocols[case_idx]} \
+            -g_cache vagrent/vagrent.cache.gz \
+            -vi brass/viral.genomic.fa.2bit \
+            -mi brass/all_ncbi_bacteria \
+            -b brass/500bp_windows.gc.bed.gz \
+            -ct brass/CentTelo.tsv \
+            -cb brass/cytoband.txt \
+            -t ${htsfiles[case_idx]} \
+            -n ${htsfiles[ctrl_idx]} \
+            -ss ascat.samplestatistics.txt \
+            -o ./
+        """
+}
 
-// process verifybamid {
-//     input:
-//     //idx, types, samp, htsread, htsidx, cn
-//         tuple val(groupId), val(types), val(sampleIds), file(htsfiles), file(htsindexes), path('copynumber.caveman.csv')
-//         path('verifyBamID_snps.vcf.gz')
-//         path('ref_cache/*')
+process verifybamid {
+    input:
+    //idx, types, samp, htsread, htsidx, cn
+        tuple val(groupId), val(types), val(sampleIds), file(htsfiles), file(htsindexes), path('copynumber.caveman.csv')
+        path('verifyBamID_snps.vcf.gz')
+        path('ref_cache')
 
-//     output:
-//         path('case')
-//         path('ctrl')
-//         path('*.contamination.result.json')
+    output:
+        path('case')
+        path('ctrl')
+        path('*.contamination.result.json')
 
-//     publishDir {
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/verifyBamID"
-//     }, mode: 'copy'
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/verifyBamID"
+    }, mode: 'copy'
 
-//     shell = ['/bin/bash', '-euo', 'pipefail']
+    shell = ['/bin/bash', '-euo', 'pipefail']
 
-//     stub:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         mkdir -p case
-//         mkdir -p ctrl
-//         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.contamination.result.json
-//         """
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        mkdir -p case
+        mkdir -p ctrl
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.contamination.result.json
+        """
 
-//     script:
-//         def case_idx = types.indexOf('case')
-//         def ctrl_idx = types.indexOf('control')
-//         """
-//         export REF_CACHE=\$PWD/ref_cache/%2s/%2s/%s
-//         export REF_PATH=\$REF_CACHE
+    script:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        export REF_CACHE=\$PWD/ref_cache/%2s/%2s/%s
+        export REF_PATH=\$REF_CACHE
 
-//         # control
-//         verifyBamHomChk.pl -d 25 \
-//         -o ./ctrl \
-//         -b ${htsfiles[ctrl_idx]} \
-//         -t ${task.cpus} \
-//         -j ${sampleIds[ctrl_idx]}.contamination.result.json \
-//         -s verifyBamID_snps.vcf.gz
+        # control
+        verifyBamHomChk.pl -d 25 \
+        -o ./ctrl \
+        -b ${htsfiles[ctrl_idx]} \
+        -t ${task.cpus} \
+        -j ${sampleIds[ctrl_idx]}.contamination.result.json \
+        -s verifyBamID_snps.vcf.gz
 
-//         # case
-//         verifyBamHomChk.pl -d 25 \
-//         -o ./case \
-//         -b ${htsfiles[case_idx]} \
-//         -t ${task.cpus} \
-//         -j ${sampleIds[case_idx]}.contamination.result.json \
-//         -s verifyBamID_snps.vcf.gz \
-//         -a copynumber.caveman.csv
-//         """
+        # case
+        verifyBamHomChk.pl -d 25 \
+        -o ./case \
+        -b ${htsfiles[case_idx]} \
+        -t ${task.cpus} \
+        -j ${sampleIds[case_idx]}.contamination.result.json \
+        -s verifyBamID_snps.vcf.gz \
+        -a copynumber.caveman.csv
+        """
 
-// }
+}
 
 workflow {
     core_ref     = file(params.core_ref)
@@ -887,52 +887,52 @@ workflow {
             params.cavevcfsplit
         )
 
-        // // handle cases where split file list is a single element and currently unable to force to a list.
-        // cleaned_split = caveman_vcf_split.out.split_vcf.map {
-        //     idx, maybe_list -> [idx, maybe_list instanceof Collection ? maybe_list : [maybe_list]]
-        // }
-        // flag_set = grouped_align.combine(pindel_flag.out.germline, by:0)
-        //             .combine(cleaned_split, by: 0)
-        //             .transpose(by: 10)
+        // handle cases where split file list is a single element and currently unable to force to a list.
+        cleaned_split = caveman_vcf_split.out.split_vcf.map {
+            idx, maybe_list -> [idx, maybe_list instanceof Collection ? maybe_list : [maybe_list]]
+        }
+        flag_set = grouped_align.combine(pindel_flag.out.germline, by:0)
+                    .combine(cleaned_split, by: 0)
+                    .transpose(by: 10)
 
-        // caveman_flag(
-        //     prep_ref.out.ref,
-        //     flag_set,
-        //     prep_ref.out.cave_flag,
-        //     prep_ref.out.vagrent
-        // )
+        caveman_flag(
+            prep_ref.out.ref,
+            flag_set,
+            prep_ref.out.cave_flag,
+            prep_ref.out.vagrent
+        )
 
-        // type_samp = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp] }
+        type_samp = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp] }
 
-        // caveman_flag_merge(
-        //     caveman_flag.out.flagged.groupTuple(by: 0).combine(type_samp, by: 0)
-        // )
+        caveman_flag_merge(
+            caveman_flag.out.flagged.groupTuple(by: 0).combine(type_samp, by: 0)
+        )
 
-        // to_annotate = pindel_flag.out.flagged.concat(caveman_flag_merge.out.flagged)
+        to_annotate = pindel_flag.out.flagged.concat(caveman_flag_merge.out.flagged)
 
-        // vagrent(
-        //     to_annotate.combine(type_samp, by: 0),
-        //     prep_ref.out.vagrent
-        // )
+        vagrent(
+            to_annotate.combine(type_samp, by: 0),
+            prep_ref.out.vagrent
+        )
 
-        // align_cn_verify = align_and_ascat.map {
-        //     idx, types, samp, prot, plat, htsread, htsidx, htsstats, cn, ss -> [idx, types, samp, htsread, htsidx, cn]
-        // }
+        align_cn_verify = align_and_ascat.map {
+            idx, types, samp, prot, plat, htsread, htsidx, htsstats, cn, ss -> [idx, types, samp, htsread, htsidx, cn]
+        }
 
-        // verifybamid(
-        //     align_cn_verify,
-        //     prep_ref.out.snps_verifyBamID,
-        //     prep_ref.out.ref_cache
-        // )
+        verifybamid(
+            align_cn_verify,
+            prep_ref.out.snps_verifyBamID,
+            prep_ref.out.ref_cache
+        )
 
-        // // just the bits we need staging for this process
-        // sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
-        // align_and_ss = grouped_align.combine(sample_stats, by: 0)
+        // just the bits we need staging for this process
+        sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
+        align_and_ss = grouped_align.combine(sample_stats, by: 0)
 
-        // brass(
-        //     prep_ref.out.ref,
-        //     align_and_ss,
-        //     prep_ref.out.vagrent,
-        //     prep_ref.out.brass
-        // )
+        brass(
+            prep_ref.out.ref,
+            align_and_ss,
+            prep_ref.out.vagrent,
+            prep_ref.out.brass
+        )
 }
