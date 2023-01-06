@@ -543,26 +543,26 @@ process caveman {
         """
 }
 
-// process caveman_vcf_split {
-//     input:
-//         tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi')
-//         val cavevcfsplit
+process caveman_vcf_split {
+    input:
+        tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi')
+        val cavevcfsplit
 
-//     output:
-//         tuple val(groupId), path('split.*'), emit: split_vcf
+    output:
+        tuple val(groupId), path('split.*'), emit: split_vcf
 
-//     shell = ['/bin/bash', '-euo', 'pipefail']
+    shell = ['/bin/bash', '-euo', 'pipefail']
 
-//     stub:
-//         """
-//         touch split.1 split.2
-//         """
+    stub:
+        """
+        touch split.1 split.2
+        """
 
-//     script:
-//         """
-//         cgpVCFSplit.pl -i input.vcf.gz -o split -l ${cavevcfsplit}
-//         """
-// }
+    script:
+        """
+        cgpVCFSplit.pl -i input.vcf.gz -o split -l ${cavevcfsplit}
+        """
+}
 
 // process caveman_flag {
 //     input:
@@ -882,10 +882,10 @@ workflow {
             params.exclude
         )
 
-        // caveman_vcf_split(
-        //     caveman.out.to_flag,
-        //     params.cavevcfsplit
-        // )
+        caveman_vcf_split(
+            caveman.out.to_flag,
+            params.cavevcfsplit
+        )
 
         // // handle cases where split file list is a single element and currently unable to force to a list.
         // cleaned_split = caveman_vcf_split.out.split_vcf.map {
