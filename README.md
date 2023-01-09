@@ -80,6 +80,8 @@ nextflow -c nextflow.stubRun.config run main.nf \
 
 Once CYNAPSE is able to fully support the `-stub-run` option the additional config file will not be necessary.
 
+See command in `./stubWithDemoData.txt` for local stub exec using the example data above.
+
 ### Profiles
 
 Ensure you set appropriate values for `-profile`.  For example, to use the `test` data on a `slurm` compute farm using

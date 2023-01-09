@@ -481,17 +481,19 @@ process caveman {
         path('highDepth.tsv')
         val cavereads
         val exclude
+        val cavevcfsplit
 
     output:
-        tuple val(groupId), path('*.muts.ids.vcf.gz'), path('*.muts.ids.vcf.gz.tbi'), emit: to_flag
+        tuple val(groupId), path('*.muts.ids.vcf.gz'), path('*.muts.ids.vcf.gz.tbi')
         tuple path('*.snps.ids.vcf.gz'), path('*.snps.ids.vcf.gz.tbi')
         path('*.no_analysis.bed')
+        tuple val(groupId), path('split.*'), emit: split_vcf
 
     publishDir {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/caveman"
-    }, mode: 'copy'
+    }, mode: 'copy', pattern: '*.{vcf.gz,vcf.gz.tbi,bed}'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -504,6 +506,7 @@ process caveman {
         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz
         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz.tbi
         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.no_analysis.bed
+        touch split.1 split.2
         """
 
     script:
@@ -540,26 +543,8 @@ process caveman {
         ${apply_exclude} \
         -k \$NORM_CONTAM \
         -no-flagging
-        """
-}
 
-process caveman_vcf_split {
-    input:
-        tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi')
-        val cavevcfsplit
-
-    output:
-        tuple val(groupId), path('split.*'), emit: split_vcf
-
-    shell = ['/bin/bash', '-euo', 'pipefail']
-
-    stub:
-        """
-        touch split.1 split.2
-        """
-
-    script:
-        """
+        # split ready for flagging
         cgpVCFSplit.pl -i input.vcf.gz -o split -l ${cavevcfsplit}
         """
 }
@@ -879,16 +864,12 @@ workflow {
             align_and_ascat,
             prep_ref.out.cave_hidepth,
             params.cavereads,
-            params.exclude
-        )
-
-        caveman_vcf_split(
-            caveman.out.to_flag,
+            params.exclude,
             params.cavevcfsplit
         )
 
         // handle cases where split file list is a single element and currently unable to force to a list.
-        cleaned_split = caveman_vcf_split.out.split_vcf.map {
+        cleaned_split = caveman.out.split_vcf.map {
             idx, maybe_list -> [idx, maybe_list instanceof Collection ? maybe_list : [maybe_list]]
         }
         flag_set = grouped_align.combine(pindel_flag.out.germline, by:0)
