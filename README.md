@@ -68,6 +68,18 @@ To execute with test data:
     --pairs $PATH_TO_UPDATED_CSV/test.csv
    ```
 
+## Development testing
+
+Use the Nextflow `-stub-run` option with the `nextflow.stubRub.config`.
+
+```
+nextflow -c nextflow.stubRun.config run main.nf \
+            -profile test -stub-run \
+            ...
+```
+
+Once CYNAPSE is able to fully support the `-stub-run` option the additional config file will not be necessary.
+
 ### Profiles
 
 Ensure you set appropriate values for `-profile`.  For example, to use the `test` data on a `slurm` compute farm using
@@ -80,6 +92,14 @@ Ensure you set appropriate values for `-profile`.  For example, to use the `test
 You can see all available profiles under `./conf/`.
 
 NOTE: do not use the `test` profile for anything other than testing with GRCh37 as it will mask the majority of the genome.
+
+#### CYNAPSE
+
+On CYNAPSE you need to select 2 profiles:
+
+1. `awsbatch`
+1. `cynapse-pro-admin` or `cynapse-pro-wrkspc`
+   - depending on use of admin or standard workspace - different queues
 
 ### Versions
 
