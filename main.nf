@@ -545,7 +545,7 @@ process caveman {
         -no-flagging
 
         # split ready for flagging
-        cgpVCFSplit.pl -i input.vcf.gz -o split -l ${cavevcfsplit}
+        cgpVCFSplit.pl -i ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.muts.ids.vcf.gz -o split -l ${cavevcfsplit}
         """
 }
 
