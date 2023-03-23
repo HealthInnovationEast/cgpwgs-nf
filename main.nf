@@ -213,6 +213,7 @@ process genotypes {
         tuple val(groupId), val(types), val(sampleIds), file(htsfiles), file(htsindexes)
         file('general.tsv')
         file('sex.tsv')
+        path('ref_cache')
 
     output:
         file('*.tsv.gz')
@@ -242,6 +243,9 @@ process genotypes {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         """
+        export REF_CACHE=\$PWD/ref_cache/%2s/%2s/%s
+        export REF_PATH=\$REF_CACHE
+
         compareBamGenotypes.pl \
             -o ./ \
             -j ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.json \
@@ -825,7 +829,8 @@ workflow {
         genotypes(
             grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, reads, ridx] },
             prep_ref.out.snps_genotype,
-            prep_ref.out.snps_sex
+            prep_ref.out.snps_sex,
+            prep_ref.out.ref_cache
         )
 
         ascat_counts(
