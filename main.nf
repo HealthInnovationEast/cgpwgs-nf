@@ -668,6 +668,7 @@ process brass {
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), file('ascat.samplestatistics.txt')
         path('vagrent')
         path('brass')
+        path('ref_cache')
 
     output:
         path('*.brm.bam')
@@ -705,6 +706,9 @@ process brass {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         """
+        export REF_CACHE=\$PWD/ref_cache/%2s/%2s/%s
+        export REF_PATH=\$REF_CACHE
+
         # Get the species and assembly from the dict file
         SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
         ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
@@ -919,6 +923,7 @@ workflow {
             prep_ref.out.ref,
             align_and_ss,
             prep_ref.out.vagrent,
-            prep_ref.out.brass
+            prep_ref.out.brass,
+            prep_ref.out.ref_cache
         )
 }
