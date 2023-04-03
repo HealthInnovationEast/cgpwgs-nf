@@ -559,6 +559,7 @@ process caveman_flag {
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('pindel.germline.bed.gz'), path('pindel.germline.bed.gz.tbi'), path(splitvcf)
         path('caveman')
         path('vagrent')
+        path('ref_cache')
 
     output:
         tuple val(groupId), path('flagged.vcf'), emit: flagged
@@ -574,6 +575,9 @@ process caveman_flag {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         """
+        export REF_CACHE=\$PWD/ref_cache/%2s/%2s/%s
+        export REF_PATH=\$REF_CACHE
+
         # Get the species and assembly from the dict file
         SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
         ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
@@ -889,7 +893,8 @@ workflow {
             prep_ref.out.ref,
             flag_set,
             prep_ref.out.cave_flag,
-            prep_ref.out.vagrent
+            prep_ref.out.vagrent,
+            prep_ref.out.ref_cache
         )
 
         type_samp = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp] }
