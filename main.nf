@@ -246,6 +246,9 @@ process genotypes {
         export REF_CACHE=\$PWD/ref_cache/%2s/%2s/%s
         export REF_PATH=\$REF_CACHE
 
+        df -h .
+        echo 'Samples: ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}'
+
         compareBamGenotypes.pl \
             -o ./ \
             -j ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.json \
@@ -253,6 +256,9 @@ process genotypes {
             -nb ${htsfiles[ctrl_idx]} \
             -s general.tsv \
             -g sex.tsv
+
+        ls -ltrh .
+
         gzip ${sampleIds[case_idx]}.*.tsv
         gzip ${sampleIds[ctrl_idx]}.*.tsv
         """
