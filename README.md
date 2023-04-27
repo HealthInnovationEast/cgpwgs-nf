@@ -58,15 +58,29 @@ To execute with test data:
 1. Run the following command providing suitable values for `PROFILES`, `PATH_TO_REF` and `PATH_TO_UPDATED_CSV`:
 
    ```bash
-   nextflow run cgpwgs-nf/main.nf
-    -profile $PROFILES
-    --core_ref $PATH_TO_REF/core_ref_GRCh37d5.tar.gz
-    --snv_indel $PATH_TO_REF/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz
-    --cvn_sv $PATH_TO_REF/CNV_SV_ref_GRCh37d5_brass6+.tar.gz
-    --annot $PATH_TO_REF/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz
-    --qc_genotype $PATH_TO_REFs/qcGenotype_GRCh37d5.tar.gz
+   nextflow run -r main https://github.com/cynapse-ccri/cgpwgs-nf \
+    -profile $PROFILES \
+    --core_ref $PATH_TO_REF/core_ref_GRCh37d5.tar.gz \
+    --snv_indel $PATH_TO_REF/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
+    --cnv_sv $PATH_TO_REF/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
+    --annot $PATH_TO_REF/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
+    --qc_genotype $PATH_TO_REFs/qcGenotype_GRCh37d5.tar.gz \
     --pairs $PATH_TO_UPDATED_CSV/test.csv
    ```
+
+## Development testing
+
+Use the Nextflow `-stub-run` option with the `nextflow.stubRub.config`.
+
+```
+nextflow -c nextflow.stubRun.config run main.nf \
+            -profile test -stub-run \
+            ...
+```
+
+Once CYNAPSE is able to fully support the `-stub-run` option the additional config file will not be necessary.
+
+See command in `./stubWithDemoData.txt` for local stub exec using the example data above.
 
 ### Profiles
 
@@ -80,6 +94,14 @@ Ensure you set appropriate values for `-profile`.  For example, to use the `test
 You can see all available profiles under `./conf/`.
 
 NOTE: do not use the `test` profile for anything other than testing with GRCh37 as it will mask the majority of the genome.
+
+#### CYNAPSE
+
+On CYNAPSE you need to select 2 profiles:
+
+1. `awsbatch`
+1. `cynapse-pro-admin` or `cynapse-pro-wrkspc`
+   - depending on use of admin or standard workspace - different queues
 
 ### Versions
 
