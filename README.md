@@ -11,7 +11,7 @@ Nextflow version of [dockstore-cgpwgs][ds-cgpwgs] wrapper, tailored for multi pa
 ## How is this different
 
 The original `dockstore-cgpwgs` codebase was designed to be run as a monolith process, all jobs on a single host managed
-by a bash script.  This nextflow implementation allows for a more flexible execution across multiple hosts.  Additionally
+by a bash script. This nextflow implementation allows for a more flexible execution across multiple hosts. Additionally
 the individual tools use their respective docker images (where they exist), rather than relying on a single image being
 up to date for each tool.
 
@@ -84,7 +84,7 @@ See command in `./stubWithDemoData.txt` for local stub exec using the example da
 
 ### Profiles
 
-Ensure you set appropriate values for `-profile`.  For example, to use the `test` data on a `slurm` compute farm using
+Ensure you set appropriate values for `-profile`. For example, to use the `test` data on a `slurm` compute farm using
 `singularity` containers the variable should be set as:
 
 ```
