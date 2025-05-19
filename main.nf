@@ -4,7 +4,7 @@ nextflow.enable.dsl=2
 def helpMessage() {
     // TODO
     log.info """
-    Please see here for usage information: https://github.com/cynapse-ccri/cgpwgs-nf/blob/main/README.md#execution
+    Please see here for usage information: https://github.com/HealthInnovationEast/cgpwgs-nf/blob/main/README.md#execution
     """.stripIndent()
 }
 

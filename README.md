@@ -58,7 +58,7 @@ To execute with test data:
 1. Run the following command providing suitable values for `PROFILES`, `PATH_TO_REF` and `PATH_TO_UPDATED_CSV`:
 
    ```bash
-   nextflow run -r main https://github.com/cynapse-ccri/cgpwgs-nf \
+   nextflow run -r main https://github.com/HealthInnovationEast/cgpwgs-nf \
     -profile $PROFILES \
     --core_ref $PATH_TO_REF/core_ref_GRCh37d5.tar.gz \
     --snv_indel $PATH_TO_REF/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
@@ -112,7 +112,7 @@ On CYNAPSE you need to select 2 profiles:
 <!-- refs -->
 
 [ds-cgpwgs]: https://github.com/cancerit/dockstore-cgpwgs
-[gha-dev]: https://github.com/cynapse-ccri/cgpwgs-nf/actions/workflows/build.yaml/badge.svg?branch=develop
-[gha-dev-view]: https://github.com/cynapse-ccri/cgpwgs-nf/actions?query=branch%3Adevelop
-[gha-main]: https://github.com/cynapse-ccri/cgpwgs-nf/actions/workflows/build.yaml/badge.svg?branch=main
-[gha-main-view]: https://github.com/cynapse-ccri/cgpwgs-nf/actions?query=branch%3Amain
+[gha-dev]: https://github.com/HealthInnovationEast/cgpwgs-nf/actions/workflows/build.yaml/badge.svg?branch=develop
+[gha-dev-view]: https://github.com/HealthInnovationEast/cgpwgs-nf/actions?query=branch%3Adevelop
+[gha-main]: https://github.com/HealthInnovationEast/cgpwgs-nf/actions/workflows/build.yaml/badge.svg?branch=main
+[gha-main-view]: https://github.com/HealthInnovationEast/cgpwgs-nf/actions?query=branch%3Amain
