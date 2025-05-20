@@ -4,7 +4,7 @@ nextflow.enable.dsl=2
 def helpMessage() {
     // TODO
     log.info """
-    Please see here for usage information: https://github.com/cynapse-ccri/cgpwgs-nf/blob/main/README.md#execution
+    Please see here for usage information: https://github.com/HealthInnovationEast/cgpwgs-nf/blob/main/README.md#execution
     """.stripIndent()
 }
 
@@ -33,7 +33,7 @@ summary['User']                                        = workflow.userName
 summary['pairs']                                       = params.pairs
 summary['core_ref']                                    = params.core_ref
 summary['snv_indel']                                   = params.snv_indel
-summary['cvn_sv']                                      = params.cvn_sv
+summary['cnv_sv']                                      = params.cnv_sv
 summary['annot']                                       = params.annot
 summary['qc_genotype']                                 = params.qc_genotype
 summary['exclude']                                     = params.exclude
@@ -151,7 +151,7 @@ process prep_ref {
     input:
         file(core_ref)
         file(snv_indel)
-        file(cvn_sv)
+        file(cnv_sv)
         file(annot)
         file(qc_genotype)
 
@@ -194,7 +194,7 @@ process prep_ref {
         mkdir ref
         tar --strip-components 1 -C ref -zxvf $core_ref
         tar --strip-components 1 -zxvf $snv_indel
-        tar --strip-components 1 -zxvf $cvn_sv
+        tar --strip-components 1 -zxvf $cnv_sv
         tar --strip-components 1 -zxvf $annot
         tar --strip-components 1 -zxvf $qc_genotype
 
@@ -205,6 +205,62 @@ process prep_ref {
 
         # build ref-cache
         seq_cache_populate.pl -subdirs 2 -root ./ref_cache ref/genome.fa
+        """
+}
+
+process genotypes {
+    input:
+        tuple val(groupId), val(types), val(sampleIds), file(htsfiles), file(htsindexes)
+        file('general.tsv')
+        file('sex.tsv')
+        path('ref_cache')
+
+    output:
+        file('*.tsv.gz')
+        file('*.genotype.json')
+        file('*.genotype.txt')
+
+
+    publishDir {
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/genotype"
+    }, mode: 'copy'
+
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    stub:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        touch ${sampleIds[case_idx]}.tsv.gz
+        touch ${sampleIds[ctrl_idx]}.tsv.gz
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.json
+        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.txt
+        """
+
+    script:
+        def case_idx = types.indexOf('case')
+        def ctrl_idx = types.indexOf('control')
+        """
+        export REF_CACHE=\$PWD/ref_cache/%2s/%2s/%s
+        export REF_PATH=\$REF_CACHE
+
+        df -h .
+        echo 'Samples: ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}'
+
+        compareBamGenotypes.pl \
+            -o ./ \
+            -j ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.json \
+            -tb ${htsfiles[case_idx]} \
+            -nb ${htsfiles[ctrl_idx]} \
+            -s general.tsv \
+            -g sex.tsv
+
+        ls -ltrh .
+
+        gzip ${sampleIds[case_idx]}.*.tsv
+        gzip ${sampleIds[ctrl_idx]}.*.tsv
         """
 }
 
@@ -295,52 +351,6 @@ process ascat {
             -t ${counts[case_idx]} -tn ${sampleIds[case_idx]} \
             -n ${counts[ctrl_idx]} -nn ${sampleIds[ctrl_idx]} \
             -c $task.cpus
-        """
-}
-
-process genotypes {
-    input:
-        tuple val(groupId), val(types), val(sampleIds), file(htsfiles), file(htsindexes)
-        file('general.tsv')
-        file('sex.tsv')
-
-    output:
-        file('*.tsv.gz')
-        file('*.genotype.json')
-        file('*.genotype.txt')
-
-
-    publishDir {
-        def case_idx = types.indexOf('case')
-        def ctrl_idx = types.indexOf('control')
-        "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/genotype"
-    }, mode: 'copy'
-
-    shell = ['/bin/bash', '-euo', 'pipefail']
-
-    stub:
-        def case_idx = types.indexOf('case')
-        def ctrl_idx = types.indexOf('control')
-        """
-        touch ${sampleIds[case_idx]}.tsv.gz
-        touch ${sampleIds[ctrl_idx]}.tsv.gz
-        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.json
-        touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.txt
-        """
-
-    script:
-        def case_idx = types.indexOf('case')
-        def ctrl_idx = types.indexOf('control')
-        """
-        compareBamGenotypes.pl \
-            -o ./ \
-            -j ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.genotype.json \
-            -tb ${htsfiles[case_idx]} \
-            -nb ${htsfiles[ctrl_idx]} \
-            -s general.tsv \
-            -g sex.tsv
-        gzip ${sampleIds[case_idx]}.*.tsv
-        gzip ${sampleIds[ctrl_idx]}.*.tsv
         """
 }
 
@@ -481,17 +491,19 @@ process caveman {
         path('highDepth.tsv')
         val cavereads
         val exclude
+        val cavevcfsplit
 
     output:
-        tuple val(groupId), path('*.muts.ids.vcf.gz'), path('*.muts.ids.vcf.gz.tbi'), emit: to_flag
+        tuple val(groupId), path('*.muts.ids.vcf.gz'), path('*.muts.ids.vcf.gz.tbi')
         tuple path('*.snps.ids.vcf.gz'), path('*.snps.ids.vcf.gz.tbi')
         path('*.no_analysis.bed')
+        tuple val(groupId), path('split.*'), emit: split_vcf
 
     publishDir {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         "${params.outdir}/${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}/caveman"
-    }, mode: 'copy'
+    }, mode: 'copy', pattern: '*.{vcf.gz,vcf.gz.tbi,bed}'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -504,6 +516,7 @@ process caveman {
         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz
         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.snps.ids.vcf.gz.tbi
         touch ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.no_analysis.bed
+        touch split.1 split.2
         """
 
     script:
@@ -540,27 +553,9 @@ process caveman {
         ${apply_exclude} \
         -k \$NORM_CONTAM \
         -no-flagging
-        """
-}
 
-process caveman_vcf_split {
-    input:
-        tuple val(groupId), path('input.vcf.gz'), path('input.vcf.gz.tbi')
-        val cavevcfsplit
-
-    output:
-        tuple val(groupId), path('split.*'), emit: split_vcf
-
-    shell = ['/bin/bash', '-euo', 'pipefail']
-
-    stub:
-        """
-        touch split.1 split.2
-        """
-
-    script:
-        """
-        cgpVCFSplit.pl -i input.vcf.gz -o split -l ${cavevcfsplit}
+        # split ready for flagging
+        cgpVCFSplit.pl -i ${sampleIds[case_idx]}_vs_${sampleIds[ctrl_idx]}.muts.ids.vcf.gz -o split -l ${cavevcfsplit}
         """
 }
 
@@ -570,6 +565,7 @@ process caveman_flag {
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), path('pindel.germline.bed.gz'), path('pindel.germline.bed.gz.tbi'), path(splitvcf)
         path('caveman')
         path('vagrent')
+        path('ref_cache')
 
     output:
         tuple val(groupId), path('flagged.vcf'), emit: flagged
@@ -585,6 +581,9 @@ process caveman_flag {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         """
+        export REF_CACHE=\$PWD/ref_cache/%2s/%2s/%s
+        export REF_PATH=\$REF_CACHE
+
         # Get the species and assembly from the dict file
         SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
         ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
@@ -679,6 +678,7 @@ process brass {
         tuple val(groupId), val(types), val(sampleIds), val(protocols), val(platforms), file(htsfiles), file(htsindexes), file(htsStats), file('ascat.samplestatistics.txt')
         path('vagrent')
         path('brass')
+        path('ref_cache')
 
     output:
         path('*.brm.bam')
@@ -716,6 +716,9 @@ process brass {
         def case_idx = types.indexOf('case')
         def ctrl_idx = types.indexOf('control')
         """
+        export REF_CACHE=\$PWD/ref_cache/%2s/%2s/%s
+        export REF_PATH=\$REF_CACHE
+
         # Get the species and assembly from the dict file
         SPECIES=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/SP:([^\t]+)/;print \$1;'`
         ASSEMBLY=`head -n 2 ref/genome.fa.dict | tail -n 1 | perl -ne 'm/AS:([^\t]+)/;print \$1;'`
@@ -799,7 +802,7 @@ process verifybamid {
 workflow {
     core_ref     = file(params.core_ref)
     snv_indel    = file(params.snv_indel)
-    cvn_sv       = file(params.cvn_sv)
+    cnv_sv       = file(params.cnv_sv)
     annot        = file(params.annot)
     qc_genotype  = file(params.qc_genotype)
 
@@ -830,9 +833,18 @@ workflow {
         prep_ref(
             core_ref,
             snv_indel,
-            cvn_sv,
+            cnv_sv,
             annot,
             qc_genotype
+        )
+
+        grouped_align = case_control_map.groupTuple()
+
+        genotypes(
+            grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, reads, ridx] },
+            prep_ref.out.snps_genotype,
+            prep_ref.out.snps_sex,
+            prep_ref.out.ref_cache
         )
 
         ascat_counts(
@@ -845,14 +857,6 @@ workflow {
             prep_ref.out.ref,
             prep_ref.out.snps_gc,
             ascat_counts.out.to_ascat.groupTuple()
-        )
-
-        grouped_align = case_control_map.groupTuple()
-
-        genotypes(
-            grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp, reads, ridx] },
-            prep_ref.out.snps_genotype,
-            prep_ref.out.snps_sex
         )
 
         pindel(
@@ -872,17 +876,6 @@ workflow {
             params.skipgerm
         )
 
-        // just the bits we need staging for this process
-        sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
-        align_and_ss = grouped_align.combine(sample_stats, by: 0)
-
-        brass(
-            prep_ref.out.ref,
-            align_and_ss,
-            prep_ref.out.vagrent,
-            prep_ref.out.brass
-        )
-
         align_and_ascat = grouped_align.combine(ascat.out.ascat_for_caveman, by: 0)
 
         caveman(
@@ -890,16 +883,12 @@ workflow {
             align_and_ascat,
             prep_ref.out.cave_hidepth,
             params.cavereads,
-            params.exclude
-        )
-
-        caveman_vcf_split(
-            caveman.out.to_flag,
+            params.exclude,
             params.cavevcfsplit
         )
 
         // handle cases where split file list is a single element and currently unable to force to a list.
-        cleaned_split = caveman_vcf_split.out.split_vcf.map {
+        cleaned_split = caveman.out.split_vcf.map {
             idx, maybe_list -> [idx, maybe_list instanceof Collection ? maybe_list : [maybe_list]]
         }
         flag_set = grouped_align.combine(pindel_flag.out.germline, by:0)
@@ -910,7 +899,8 @@ workflow {
             prep_ref.out.ref,
             flag_set,
             prep_ref.out.cave_flag,
-            prep_ref.out.vagrent
+            prep_ref.out.vagrent,
+            prep_ref.out.ref_cache
         )
 
         type_samp = grouped_align.map { idx, type, samp, prot, plat, reads, ridx, bas -> [idx, type, samp] }
@@ -936,27 +926,15 @@ workflow {
             prep_ref.out.ref_cache
         )
 
+        // just the bits we need staging for this process
+        sample_stats = ascat.out.ascat_for_caveman.map { idx, counts, samp_stats -> [idx, samp_stats] }
+        align_and_ss = grouped_align.combine(sample_stats, by: 0)
 
-    /*
-    STUB run
-    rm -rf results/* .nextflow* work
-    nextflow run main.nf \
-        -profile test -stub-run \
-        --core_ref data/cgpwgs_ref/GRCh37/archives/core_ref_GRCh37d5.tar.gz \
-        --snv_indel data/cgpwgs_ref/GRCh37/archives/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
-        --cvn_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
-        --annot data/cgpwgs_ref/GRCh37/archives/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
-        --qc_genotype data/cgpwgs_ref/GRCh37/archives/qcGenotype_GRCh37d5.tar.gz \
-        --pairs data/test.csv
-
-    rm -rf results/* .nextflow* work
-    nextflow run /home/kr525/git/cynapse-ccri/cgpwgs-nf/main.nf \
-        -profile test,singularity,slurm -resume \
-        --core_ref data/cgpwgs_ref/GRCh37/archives/core_ref_GRCh37d5.tar.gz \
-        --snv_indel data/cgpwgs_ref/GRCh37/archives/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
-        --cvn_sv data/cgpwgs_ref/GRCh37/archives/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
-        --annot data/cgpwgs_ref/GRCh37/archives/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
-        --qc_genotype data/cgpwgs_ref/GRCh37/archives/qcGenotype_GRCh37d5.tar.gz \
-        --pairs /home/kr525/git/cynapse-ccri/cgpwgs-nf/test.csv
-    */
+        brass(
+            prep_ref.out.ref,
+            align_and_ss,
+            prep_ref.out.vagrent,
+            prep_ref.out.brass,
+            prep_ref.out.ref_cache
+        )
 }

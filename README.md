@@ -11,7 +11,7 @@ Nextflow version of [dockstore-cgpwgs][ds-cgpwgs] wrapper, tailored for multi pa
 ## How is this different
 
 The original `dockstore-cgpwgs` codebase was designed to be run as a monolith process, all jobs on a single host managed
-by a bash script.  This nextflow implementation allows for a more flexible execution across multiple hosts.  Additionally
+by a bash script. This nextflow implementation allows for a more flexible execution across multiple hosts. Additionally
 the individual tools use their respective docker images (where they exist), rather than relying on a single image being
 up to date for each tool.
 
@@ -58,19 +58,33 @@ To execute with test data:
 1. Run the following command providing suitable values for `PROFILES`, `PATH_TO_REF` and `PATH_TO_UPDATED_CSV`:
 
    ```bash
-   nextflow run cgpwgs-nf/main.nf
-    -profile $PROFILES
-    --core_ref $PATH_TO_REF/core_ref_GRCh37d5.tar.gz
-    --snv_indel $PATH_TO_REF/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz
-    --cvn_sv $PATH_TO_REF/CNV_SV_ref_GRCh37d5_brass6+.tar.gz
-    --annot $PATH_TO_REF/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz
-    --qc_genotype $PATH_TO_REFs/qcGenotype_GRCh37d5.tar.gz
+   nextflow run -r main https://github.com/HealthInnovationEast/cgpwgs-nf \
+    -profile $PROFILES \
+    --core_ref $PATH_TO_REF/core_ref_GRCh37d5.tar.gz \
+    --snv_indel $PATH_TO_REF/SNV_INDEL_ref_GRCh37d5-fragment.tar.gz \
+    --cnv_sv $PATH_TO_REF/CNV_SV_ref_GRCh37d5_brass6+.tar.gz \
+    --annot $PATH_TO_REF/VAGrENT_ref_GRCh37d5_ensembl_75.tar.gz \
+    --qc_genotype $PATH_TO_REFs/qcGenotype_GRCh37d5.tar.gz \
     --pairs $PATH_TO_UPDATED_CSV/test.csv
    ```
 
+## Development testing
+
+Use the Nextflow `-stub-run` option with the `nextflow.stubRub.config`.
+
+```
+nextflow -c nextflow.stubRun.config run main.nf \
+            -profile test -stub-run \
+            ...
+```
+
+Once CYNAPSE is able to fully support the `-stub-run` option the additional config file will not be necessary.
+
+See command in `./stubWithDemoData.txt` for local stub exec using the example data above.
+
 ### Profiles
 
-Ensure you set appropriate values for `-profile`.  For example, to use the `test` data on a `slurm` compute farm using
+Ensure you set appropriate values for `-profile`. For example, to use the `test` data on a `slurm` compute farm using
 `singularity` containers the variable should be set as:
 
 ```
@@ -81,6 +95,14 @@ You can see all available profiles under `./conf/`.
 
 NOTE: do not use the `test` profile for anything other than testing with GRCh37 as it will mask the majority of the genome.
 
+#### CYNAPSE
+
+On CYNAPSE you need to select 2 profiles:
+
+1. `awsbatch`
+1. `cynapse-pro-admin` or `cynapse-pro-wrkspc`
+   - depending on use of admin or standard workspace - different queues
+
 ### Versions
 
 |    Workflow     |                                                                                                                                               Images |
@@ -90,7 +112,7 @@ NOTE: do not use the `test` profile for anything other than testing with GRCh37 
 <!-- refs -->
 
 [ds-cgpwgs]: https://github.com/cancerit/dockstore-cgpwgs
-[gha-dev]: https://github.com/cynapse-ccri/cgpwgs-nf/actions/workflows/build.yaml/badge.svg?branch=develop
-[gha-dev-view]: https://github.com/cynapse-ccri/cgpwgs-nf/actions?query=branch%3Adevelop
-[gha-main]: https://github.com/cynapse-ccri/cgpwgs-nf/actions/workflows/build.yaml/badge.svg?branch=main
-[gha-main-view]: https://github.com/cynapse-ccri/cgpwgs-nf/actions?query=branch%3Amain
+[gha-dev]: https://github.com/HealthInnovationEast/cgpwgs-nf/actions/workflows/build.yaml/badge.svg?branch=develop
+[gha-dev-view]: https://github.com/HealthInnovationEast/cgpwgs-nf/actions?query=branch%3Adevelop
+[gha-main]: https://github.com/HealthInnovationEast/cgpwgs-nf/actions/workflows/build.yaml/badge.svg?branch=main
+[gha-main-view]: https://github.com/HealthInnovationEast/cgpwgs-nf/actions?query=branch%3Amain
